@@ -2,7 +2,7 @@
 
 ## Arquitetura
 
-O TrayCheck é uma aplicação React de página única, construída com TypeScript, Vite e Tailwind CSS. `src/main.tsx` monta a aplicação. `src/App.tsx` mantém a sessão do usuário em memória, a navegação e a composição das telas em `src/components/`. Os tipos de domínio e dados de demonstração ficam em `src/data/mockData.ts`; `src/services/api.ts` é o cliente REST. Os estilos globais e a entrada do Tailwind ficam em `src/index.css`.
+O TrayCheck é uma aplicação React de página única, construída com TypeScript, Vite e Tailwind CSS. A pasta `src/` do repositório é a raiz da aplicação; nela, `frontend/main.tsx` monta a aplicação. `frontend/App.tsx` mantém a sessão do usuário em memória, a navegação e a composição das telas em `frontend/components/`. Os tipos de domínio e dados de demonstração ficam em `frontend/data/mockData.ts`; `frontend/services/api.ts` é o cliente REST. Os estilos globais ficam em `frontend/index.css`.
 
 ## Decisões importantes
 
@@ -10,7 +10,7 @@ O TrayCheck é uma aplicação React de página única, construída com TypeScri
 - Sem `VITE_API_BASE_URL`, as telas usam dados de demonstração e as alterações não persistem entre sessões. Configurá-la habilita chamadas conforme o contrato em `docs/frontend-api-contract.md`.
 - O cliente da API envia credenciais do navegador e mantém um token bearer opcional em memória. Não persiste o token no armazenamento local.
 - As restrições de navegação administrativa são apenas comportamento de interface. O backend deve aplicar autorização independentemente.
-- `pnpm-lock.yaml` é o lockfile de dependências. As versões declaradas das ferramentas são Node.js 22 e pnpm 10.34.3 em `.mise.toml`.
+- `package.json` e `pnpm-lock.yaml` ficam na pasta `src/` do repositório. O manifesto fixa `pnpm@10.34.3` por Corepack e requer Node.js 22.12 ou superior.
 - `public/robots.txt` e os metadados da página desencorajam indexação; confirme os requisitos de implantação antes de alterá-los.
 
 ## Serviços externos e acessos
@@ -36,13 +36,11 @@ O TrayCheck é uma aplicação React de página única, construída com TypeScri
 
 ## Comandos úteis
 
-Execute na raiz do repositório após instalar as versões declaradas em `.mise.toml` e instalar dependências com `pnpm install --frozen-lockfile`:
+Na raiz do repositório, instale dependências e inicie a aplicação com:
 
 ```sh
-pnpm dev
-pnpm build
-pnpm exec tsc --noEmit
-pnpm preview
+corepack pnpm@10.34.3 --dir src install --frozen-lockfile
+corepack pnpm@10.34.3 --dir src dev
 ```
 
-`pnpm preview` serve o build de produção e deve ser executado depois de `pnpm build`. Não existe o comando `pnpm test`.
+O Vite fica disponível em `http://localhost:8443/`. Para validar o projeto, execute `corepack pnpm@10.34.3 --dir src build` e `corepack pnpm@10.34.3 --dir src exec tsc --noEmit`. `corepack pnpm@10.34.3 --dir src preview` serve o build de produção após a compilação. Não existe o comando `test`.

@@ -31,6 +31,6 @@ O frontend espera uma API REST JSON versionada em `/api/v1`. Configure `VITE_API
 
 ## Tipos compartilhados
 
-Os DTOs e tipos de domínio estão definidos em `src/data/mockData.ts`; tipos específicos das operações ficam em `src/services/api.ts`. IDs são strings. Datas exibidas pela interface usam `dd/MM/yyyy`; timestamps de itens usam o formato `HH:mm:ss`. A API deve validar autorização por papel no servidor, independentemente das restrições de navegação do cliente.
+Os DTOs e tipos de domínio estão definidos em `frontend/data/mockData.ts`; tipos específicos das operações ficam em `frontend/services/api.ts`. IDs são strings. Datas exibidas pela interface usam `dd/MM/yyyy`; timestamps de itens usam o formato `HH:mm:ss`. A API deve validar autorização por papel no servidor, independentemente das restrições de navegação do cliente.
 
 O frontend não deve enviar nem persistir hashes de senha. Credenciais são enviadas somente ao endpoint de login e a senha atual/nova somente ao endpoint de troca de senha. O backend é responsável por autenticação, autorização, validação, auditoria, transações e persistência.

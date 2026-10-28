@@ -1,66 +1,67 @@
-# TrayCheck
+# TrayCheck — frontend
 
-O TrayCheck é um frontend React para conferência de kits cirúrgicos e fluxos relacionados ao centro cirúrgico. Inclui telas de kits, conferência assistida por voz, estoque, relatórios, perfil e administração. O projeto contém apenas o frontend; não fornece backend, banco de dados ou autenticação de produção.
+Esta pasta é a raiz da aplicação frontend. O TrayCheck usa React, TypeScript, Vite e Tailwind CSS; o repositório não contém backend, banco de dados ou autenticação de produção.
 
 ## Requisitos
 
-- Node.js 22, conforme declarado em `.mise.toml`.
-- pnpm 10.34.3, conforme declarado em `.mise.toml`.
-- Navegador moderno. A entrada por voz depende do suporte do navegador à Web Speech API.
+- Node.js 22.12 ou superior.
+- Corepack para executar a versão de pnpm fixada em `package.json` (`pnpm@10.34.3`).
+- Navegador moderno. A entrada por voz depende do suporte à Web Speech API.
 
-Instale as versões de Node.js e pnpm declaradas usando o gerenciador de versões adotado pela equipe. Depois, instale as dependências travadas no lockfile:
+## Instalação e execução
 
-```sh
-pnpm install --frozen-lockfile
+Na raiz do repositório, execute:
+
+```powershell
+corepack pnpm@10.34.3 --dir src install --frozen-lockfile
+corepack pnpm@10.34.3 --dir src dev
 ```
 
-## Configuração
+Ou, estando nesta pasta:
 
-O modo de demonstração local não exige variáveis de ambiente. Sem `VITE_API_BASE_URL`, a aplicação usa dados de demonstração em memória; as alterações não persistem entre sessões.
-
-Para conectar a um backend, crie um arquivo local a partir do exemplo e configure a URL:
-
-```sh
-cp .env.example .env.local
+```powershell
+corepack pnpm install --frozen-lockfile
+corepack pnpm dev
 ```
 
-Defina `VITE_API_BASE_URL` em `.env.local`, por exemplo `http://localhost:3000/api/v1`. Não coloque credenciais reais ou segredos neste repositório frontend. O backend deve permitir requisições da origem do frontend e configurar CORS e cookies conforme necessário. Consulte [docs/frontend-api-contract.md](docs/frontend-api-contract.md) para os endpoints e payloads esperados.
+Abra `http://localhost:8443/`. Sem `VITE_API_BASE_URL`, a aplicação usa dados de demonstração em memória; alterações não persistem entre sessões.
 
-## Executar e validar
+## Configuração da API
 
-Inicie o servidor de desenvolvimento:
+Para conectar a um backend, crie `src/.env.local` na raiz do repositório (ou `.env.local` nesta pasta) com:
 
-```sh
-pnpm dev
+```dotenv
+VITE_API_BASE_URL=http://localhost:3000/api/v1
 ```
 
-Abra `http://localhost:8443/`. A porta pode ser alterada pela variável de ambiente `PORT`.
+O arquivo `.env.example` contém esse exemplo. O backend precisa implementar o [contrato da API](docs/frontend-api-contract.md), permitir a origem do frontend via CORS e configurar cookies quando forem usados. Não inclua credenciais ou segredos neste repositório.
 
-Gere o bundle de produção e verifique o TypeScript:
+## Build e verificação de tipos
 
-```sh
-pnpm build
-pnpm exec tsc --noEmit
+```powershell
+corepack pnpm build
+corepack pnpm exec tsc --noEmit
 ```
 
-Para servir o bundle compilado localmente, execute `pnpm preview` depois de `pnpm build`; por padrão, ele usa a porta `8443`.
+Para servir o build localmente, execute `corepack pnpm preview` após o build. A porta padrão do Vite é `8443` e pode ser alterada pela variável `PORT`. Não há script `test` nem suíte de testes automatizados configurados.
 
-Atualmente não há suíte de testes automatizados nem script `test` em `package.json`.
-
-## Estrutura do projeto
+## Estrutura
 
 ```text
 src/
-  components/       Telas da aplicação e interface compartilhada
-    admin/           Administração de estoque e usuários
-  data/              Tipos de domínio e dados de demonstração
-  imports/           Recursos estáticos usados pela interface
-  services/          Cliente da API REST
-  App.tsx            Sessão, navegação e composição das telas
-  index.css          Estilos globais e entrada do Tailwind
-  main.tsx           Ponto de entrada do React
-docs/                 Guia do frontend e contrato da API
-public/               Arquivos estáticos copiados para o build
+  frontend/
+    components/       Telas e componentes da interface
+      admin/          Administração de estoque e usuários
+    data/             Tipos de domínio e dados de demonstração
+    services/         Cliente REST
+    App.tsx           Sessão, navegação e composição das telas
+    index.css         Estilos globais e entrada do Tailwind
+    main.tsx          Ponto de entrada do React
+  docs/               Guia do frontend e contrato da API
+  public/             Arquivos estáticos copiados para o build
+  index.html          HTML de entrada do Vite
+  vite.config.ts      Configuração do servidor e build
+  tsconfig.json       Verificação TypeScript
 ```
 
-A configuração do Vite e do TypeScript fica na raiz. Consulte [HANDOFF.md](HANDOFF.md) para arquitetura e transferência; o comportamento detalhado do frontend está em [docs/guia-do-frontend.md](docs/guia-do-frontend.md).
+Consulte [HANDOFF.md](HANDOFF.md) para arquitetura e transferência, e [docs/guia-do-frontend.md](docs/guia-do-frontend.md) para o comportamento das telas.
