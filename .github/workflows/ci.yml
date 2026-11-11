@@ -1,0 +1,162 @@
+name: CI
+
+# Pipeline do TrayCheck: build + tipos, testes unitários/integração (com cobertura), contrato da API (Newman) e E2E (Playwright).
+# Todo o código está em `src/` (package.json, lockfile) e os testes em `tests/`.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Uma execução por branch/PR: uma nova execução cancela a anterior ainda em andamento.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: src
+
+env:
+  CI: true
+  NODE_VERSION: 22.12.0 # mínimo exigido em src/package.json ("engines")
+
+jobs:
+  build:
+    name: Build e verificação de tipos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: src/package.json # lê a versão fixada em "packageManager"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: src/pnpm-lock.yaml
+
+      - name: Instalar dependências (lockfile congelado)
+        run: pnpm install --frozen-lockfile
+
+      - name: Verificar tipos (app e testes)
+        run: pnpm typecheck
+
+      - name: Build de produção
+        run: pnpm build
+
+      - name: Publicar o bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: src/dist
+          retention-days: 7
+          if-no-files-found: error
+
+  testes:
+    name: Testes unitários e de integração
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: src/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: src/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # Roda unit + integration e falha se a cobertura ficar abaixo do piso definido em src/vitest.config.ts.
+      - name: Testes com cobertura
+        run: pnpm test:coverage
+
+      - name: Publicar relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: src/coverage
+          retention-days: 7
+          if-no-files-found: ignore
+
+  newman:
+    name: Contrato da API (Newman)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: src/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: src/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # Sobe o servidor de referência do contrato (tests/api) e executa a coleção Postman.
+      # Para testar um backend real, defina API_BASE_URL (ex.: http://host:3000/api/v1) neste passo.
+      - name: Executar coleção Newman
+        run: pnpm test:api
+
+      - name: Publicar resultados do Newman
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman
+          path: tests/api/results
+          retention-days: 7
+          if-no-files-found: ignore
+
+  e2e:
+    name: Testes E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: src/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: src/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Instalar o Chromium do Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      # O Playwright sobe sozinho os dois servidores do Vite (demonstração e conectado) e a API de referência.
+      - name: Executar testes E2E
+        run: pnpm test:e2e
+
+      - name: Publicar relatório e rastros do Playwright
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e
+          path: tests/e2e/results
+          retention-days: 7
+          if-no-files-found: ignore

@@ -22,7 +22,7 @@ O TrayCheck é uma aplicação React de página única, construída com TypeScri
 
 ## Limitações e pontos de atenção
 
-- Não há framework, diretório ou script `test` para testes automatizados neste momento. Build e verificação TypeScript estão disponíveis; novos testes devem ser adicionados em mudança separada e revisada.
+- A suíte de testes fica em `tests/` (fora de `src/`): unitários e integração (Vitest), contrato da API (Newman, contra o servidor de referência em `tests/api/`) e E2E (Playwright). Veja `tests/README.md`, incluindo os defeitos conhecidos documentados como falha esperada. O servidor de referência **não** é o backend de produção.
 - Os dados de demonstração são ilustrativos e ficam no frontend. Não são fonte de verdade adequada para dados clínicos ou de estoque reais.
 - Verificação de rota ou papel no frontend não é uma fronteira de segurança. Autenticação, autorização, validação e persistência devem ser aplicadas no backend.
 - O comportamento de demonstração e a integração com backend estão descritos em `docs/guia-do-frontend.md`; mantenha o contrato da API sincronizado com mudanças no backend.
@@ -30,7 +30,7 @@ O TrayCheck é uma aplicação React de página única, construída com TypeScri
 ## Pendências
 
 - Confirmar com a equipe que receberá o projeto quem mantém o backend, a URL de implantação, a política CORS e o provisionamento de acessos.
-- Decidir se serão necessários testes unitários/de componentes e workflow de CI; nenhum dos dois está configurado neste repositório.
+- Apontar a coleção Newman (`API_BASE_URL`) para o backend real quando ele existir e confirmar com a equipe as premissas de permissão listadas em `tests/README.md`.
 - Revisar os requisitos de suporte a navegadores para entrada por voz antes de definir os navegadores de produção.
 - Não foram identificados marcadores TODO/FIXME nem logs de depuração no código TypeScript durante esta revisão de handoff.
 
@@ -43,4 +43,4 @@ corepack pnpm@10.34.3 --dir src install --frozen-lockfile
 corepack pnpm@10.34.3 --dir src dev
 ```
 
-O Vite fica disponível em `http://localhost:8443/`. Para validar o projeto, execute `corepack pnpm@10.34.3 --dir src build` e `corepack pnpm@10.34.3 --dir src exec tsc --noEmit`. `corepack pnpm@10.34.3 --dir src preview` serve o build de produção após a compilação. Não existe o comando `test`.
+O Vite fica disponível em `http://localhost:8443/`. Para validar o projeto, execute `corepack pnpm@10.34.3 --dir src build` e `corepack pnpm@10.34.3 --dir src exec tsc --noEmit`. `corepack pnpm@10.34.3 --dir src preview` serve o build de produção após a compilação. Os testes rodam com `test`, `test:coverage`, `test:api` e `test:e2e` (ver `tests/README.md`); o CI está em `.github/workflows/ci.yml`.
