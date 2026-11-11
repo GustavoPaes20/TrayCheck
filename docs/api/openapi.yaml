@@ -1,0 +1,2862 @@
+openapi: 3.0.3
+
+info:
+  title: TrayCheck API
+  version: 1.0.0
+  description: |
+    API REST do **TrayCheck**, sistema de checklist de instrumentos cirúrgicos pré-cirurgia com assistência de voz (Projeto Integrador, FAMETRO, 2026).
+
+    Contrato de API (IC-16), revisão 1.0, alinhado à ERS v2.2, à RTM v1.0 e às migrações `db/migrations` V001–V005. O frontend (`src/frontend/services/api.ts`) usa 22 destas rotas; as demais cobrem RF02 a RF09.
+
+    ### Requisitos atendidos
+    - **RF01** autenticação e acesso por perfil
+    - **RF02** instrumentais e kits
+    - **RF03** procedimentos
+    - **RF04** checklist padrão por procedimento
+    - **RF05 a RF07** iniciar checagem, confirmar/pular itens e finalizar
+    - **RF08** histórico de checagens e relatórios
+    - **RF09** divergências (faltantes e excedentes)
+    - **RF10** relatório de conferência
+    - Rotas de apoio ao frontend: dashboard, estoque e perfil
+
+    ### Regras de negócio
+    - **RN01** só finaliza sem itens `pendente` (409).
+    - **RN02** só administrador cadastra procedimentos e vincula checklists (403).
+    - **RN03** checagem finalizada ou cancelada é imutável (409).
+    - **RN04** item divergente gera divergência e entra no relatório.
+    - **RN05** cada perfil executa só as ações do seu perfil (403).
+    - **RN06** um checklist ativo por procedimento; checklist já usado exige nova versão (409).
+    - **RN07** confirmar com quantidade diferente da esperada vira divergência (menor = faltante, maior = excedente).
+    - **RN08** checagens não são excluídas; as em andamento podem ser canceladas.
+
+    ### Perfis
+    O campo `role` usa os valores do frontend. Equivalência com a tabela `perfil`: `admin` = `admin`, `nurse` = `enfermeiro` (Enfermeiro(a) Instrumentador(a)), `technician` = `circulante`.
+
+    | Área | Administrador | Enfermeiro(a) | Circulante |
+    | --- | --- | --- | --- |
+    | Usuários | gerencia | não | não |
+    | Instrumentais e kits (UC02) | cadastra | cadastra | consulta |
+    | Procedimentos e checklists padrão (UC03, UC04) | cadastra | consulta | consulta |
+    | Iniciar e cancelar checagem (UC05) | consulta | executa | consulta |
+    | Confirmar, pular, divergência, finalizar (UC06 a UC09) | consulta | executa | executa |
+    | Relatórios (UC10) | consulta | consulta | consulta |
+    | Estoque | gerencia | consulta | consulta |
+
+    Cada operação traz o campo `x-roles` com os perfis permitidos.
+
+    ### Estados da checagem e do relatório
+    | Banco (`item_checagem.status`) | Item no relatório | Observação |
+    | --- | --- | --- |
+    | `pendente` | `pending` | não existe em relatório finalizado |
+    | `confirmado` | `confirmed` | |
+    | `pulado` | `skipped` | não é divergência |
+    | `divergente` | `missing` | gera registro em `divergencia` |
+
+    ### Convenções
+    - IDs são strings (o banco usa `INT UNSIGNED`).
+    - Datas exibidas pela interface usam `dd/MM/yyyy` e horários `HH:mm:ss`, como no frontend. Os recursos novos usam ISO 8601.
+    - Erros retornam o schema `Error` com `message` em português.
+    - Campos sem tabela nas migrações V001–V005 estão marcados na descrição e dependem de uma migração V006.
+  contact:
+    name: Equipe TrayCheck — FAMETRO
+    url: https://github.com/GustavoPaes20/TrayCheck
+  license:
+    name: Uso acadêmico — FAMETRO
+
+    url: https://github.com/GustavoPaes20/TrayCheck
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Desenvolvimento local (valor de VITE_API_BASE_URL no frontend)
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+tags:
+  - name: Autenticação
+    description: Login, logout e sessão atual (RF01)
+  - name: Usuários
+    description: Gestão de usuários pelo administrador (RF01, RN05)
+  - name: Perfil
+    description: Dados e preferências do usuário logado
+  - name: Dashboard
+    description: Resumo da tela inicial
+  - name: Instrumentais
+    description: Cadastro de instrumentais cirúrgicos (RF02)
+  - name: Kits
+    description: Cadastro de kits de instrumentais (RF02)
+  - name: Procedimentos
+    description: Cadastro de procedimentos/cirurgias (RF03, RN02)
+  - name: Checklists padrão
+    description: Vínculo de checklist padrão ao procedimento (RF04, RN02)
+  - name: Checagens
+    description: Execução da checagem, itens e divergências (RF05–RF09, RN01, RN03, RN04)
+  - name: Relatórios
+    description: Relatórios de conferência e histórico (RF08, RF10)
+  - name: Estoque
+    description: Controle de estoque de instrumentais e materiais
+
+paths:
+  # ───────────────────────────── Autenticação ─────────────────────────────
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autentica o usuário por e-mail e senha
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: ana.silva@hospitalcentral.br
+              password: senha123
+      responses:
+        '200':
+          description: Autenticado. Retorna o usuário e, opcionalmente, um token bearer.
+          headers:
+            Set-Cookie:
+              description: Cookie de sessão HttpOnly, quando o backend usa sessão por cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: E-mail ou senha inválidos, ou usuário inativo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: E-mail ou senha inválidos.
+                code: CREDENCIAIS_INVALIDAS
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: []
+      description: |
+        **Perfis permitidos:** público (sem autenticação).
+  /auth/logout:
+    post:
+      tags: [Autenticação]
+      summary: Encerra a sessão atual
+      operationId: logout
+      responses:
+        '204':
+          description: Sessão encerrada.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+  /auth/me:
+    get:
+      tags: [Autenticação]
+      summary: Retorna o usuário da sessão atual
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Usuário autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Usuários ─────────────────────────────
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+  /users:
+    get:
+      tags: [Usuários]
+      summary: Lista usuários
+      operationId: listUsers
+      parameters:
+        - name: role
+          in: query
+          description: Filtra por perfil.
+          schema:
+            $ref: '#/components/schemas/UserRole'
+        - name: status
+          in: query
+          description: Filtra por situação.
+          schema:
+            type: string
+            enum: [active, inactive]
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Lista de usuários.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin]
+      description: |
+        **Perfis permitidos:** Administrador.
+    post:
+      tags: [Usuários]
+      summary: Cria usuário
+      description: |
+        **Perfis permitidos:** Administrador.
+
+        A senha inicial é definida pelo backend e enviada ao usuário; o frontend nunca envia hash de senha.
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '201':
+          description: Usuário criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Já existe usuário com este e-mail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Já existe um usuário com este e-mail.
+                code: EMAIL_DUPLICADO
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin]
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Usuários]
+      summary: Detalha um usuário
+      operationId: getUser
+      responses:
+        '200':
+          description: Usuário encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin]
+      description: |
+        **Perfis permitidos:** Administrador.
+    put:
+      tags: [Usuários]
+      summary: Atualiza um usuário
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '200':
+          description: Usuário atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin]
+      description: |
+        **Perfis permitidos:** Administrador.
+  /users/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      tags: [Usuários]
+      summary: Ativa ou desativa um usuário
+      description: |
+        **Perfis permitidos:** Administrador.
+
+        Usuários não são excluídos fisicamente, para preservar o histórico de checagens (RN03).
+      operationId: setUserStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserStatusInput'
+            example:
+              status: inactive
+      responses:
+        '200':
+          description: Situação atualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Perfil ─────────────────────────────
+      x-roles: [admin]
+  /profile:
+    get:
+      tags: [Perfil]
+      summary: Retorna o perfil do usuário logado
+      operationId: getProfile
+      responses:
+        '200':
+          description: Perfil do usuário.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    patch:
+      tags: [Perfil]
+      summary: Atualiza nome e telefone do usuário logado
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileInput'
+      responses:
+        '200':
+          description: Perfil atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+  /profile/notifications:
+    get:
+      tags: [Perfil]
+      summary: Retorna as preferências de notificação
+      operationId: getNotificationPreferences
+      responses:
+        '200':
+          description: Preferências atuais.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+
+        Sem tabela nas migrações V001–V005: as preferências exigem uma migração (V006). Até lá, ficam em memória/demonstração.
+    put:
+      tags: [Perfil]
+      summary: Salva as preferências de notificação
+      operationId: updateNotificationPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferences'
+      responses:
+        '200':
+          description: Preferências salvas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+  /profile/password:
+    put:
+      tags: [Perfil]
+      summary: Altera a senha do usuário logado
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+      responses:
+        '204':
+          description: Senha alterada.
+        '400':
+          description: Senha atual incorreta ou nova senha fora da política.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: A senha atual está incorreta.
+                code: SENHA_ATUAL_INCORRETA
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Dashboard ─────────────────────────────
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Resumo da tela inicial
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+
+        Totais de cirurgias e estoque e a programação do dia. Os totais vêm de agregações (procedimentos, checagens e `estoque_item.situacao`). `schedule` e `surgeryTrend` **não têm tabela** nas migrações V001–V005: até existir uma migração (V006), o backend responde com dados de demonstração.
+      operationId: getDashboard
+      responses:
+        '200':
+          description: Resumo do dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Instrumentais (RF02) ─────────────────────────────
+      x-roles: [admin, nurse, technician]
+  /instruments:
+    get:
+      tags: [Instrumentais]
+      summary: Lista instrumentais cadastrados
+      operationId: listInstruments
+      parameters:
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/InstrumentCategory'
+        - name: active
+          in: query
+          description: Filtra por ativos/inativos. Sem o parâmetro, retorna todos.
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Lista de instrumentais.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Instrument'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    post:
+      tags: [Instrumentais]
+      summary: Cadastra instrumental
+      operationId: createInstrument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstrumentInput'
+      responses:
+        '201':
+          description: Instrumental criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instrument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin, nurse]
+      description: |
+        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a).
+
+        RN05: o Circulante não cadastra instrumentais nem kits (403).
+  /instruments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Instrumentais]
+      summary: Detalha um instrumental
+      operationId: getInstrument
+      responses:
+        '200':
+          description: Instrumental encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instrument'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    put:
+      tags: [Instrumentais]
+      summary: Atualiza um instrumental
+      operationId: updateInstrument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstrumentInput'
+      responses:
+        '200':
+          description: Instrumental atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instrument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse]
+      description: |
+        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a).
+
+        RN05: o Circulante não cadastra instrumentais nem kits (403).
+    delete:
+      tags: [Instrumentais]
+      summary: Inativa um instrumental
+      description: |
+        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a).
+
+        RN05: o Circulante não cadastra instrumentais nem kits (403).
+
+        Exclusão lógica (`active = false`), pois o instrumental pode estar referenciado em kits, checklists e checagens.
+      operationId: deleteInstrument
+      responses:
+        '204':
+          description: Instrumental inativado.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Kits (RF02) ─────────────────────────────
+      x-roles: [admin, nurse]
+  /kits:
+    get:
+      tags: [Kits]
+      summary: Lista kits
+      operationId: listKits
+      parameters:
+        - name: active
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Lista de kits.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Kit'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    post:
+      tags: [Kits]
+      summary: Cadastra kit com seus instrumentais
+      operationId: createKit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KitInput'
+      responses:
+        '201':
+          description: Kit criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kit'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin, nurse]
+      description: |
+        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a).
+
+        RN05: o Circulante não cadastra instrumentais nem kits (403).
+  /kits/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Kits]
+      summary: Detalha um kit
+      operationId: getKit
+      responses:
+        '200':
+          description: Kit encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kit'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    put:
+      tags: [Kits]
+      summary: Atualiza um kit e substitui sua lista de itens
+      operationId: updateKit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KitInput'
+      responses:
+        '200':
+          description: Kit atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kit'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse]
+      description: |
+        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a).
+
+        RN05: o Circulante não cadastra instrumentais nem kits (403).
+    delete:
+      tags: [Kits]
+      summary: Inativa um kit
+      operationId: deleteKit
+      responses:
+        '204':
+          description: Kit inativado.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Procedimentos (RF03) ─────────────────────────────
+      x-roles: [admin, nurse]
+      description: |
+        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a).
+
+        RN05: o Circulante não cadastra instrumentais nem kits (403).
+  /surgeries:
+    get:
+      tags: [Procedimentos]
+      summary: Lista procedimentos (cirurgias)
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+
+        Usado pela tela de seleção de cirurgia do frontend.
+      operationId: listSurgeries
+      parameters:
+        - name: specialty
+          in: query
+          schema:
+            type: string
+          example: Ortopedia
+        - name: active
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Lista de procedimentos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Surgery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+    post:
+      tags: [Procedimentos]
+      summary: Cadastra procedimento
+      operationId: createSurgery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SurgeryInput'
+      responses:
+        '201':
+          description: Procedimento criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Surgery'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin]
+      description: |
+        **Perfis permitidos:** Administrador.
+
+        RN02: somente administradores cadastram procedimentos e vinculam checklists padrão.
+  /surgeries/{id}:
+    parameters:
+      - $ref: '#/components/parameters/SurgeryId'
+    get:
+      tags: [Procedimentos]
+      summary: Detalha um procedimento
+      operationId: getSurgery
+      responses:
+        '200':
+          description: Procedimento encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Surgery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    put:
+      tags: [Procedimentos]
+      summary: Atualiza um procedimento
+      operationId: updateSurgery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SurgeryInput'
+      responses:
+        '200':
+          description: Procedimento atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Surgery'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin]
+      description: |
+        **Perfis permitidos:** Administrador.
+
+        RN02: somente administradores cadastram procedimentos e vinculam checklists padrão.
+    delete:
+      tags: [Procedimentos]
+      summary: Inativa um procedimento
+      operationId: deleteSurgery
+      responses:
+        '204':
+          description: Procedimento inativado.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin]
+      description: |
+        **Perfis permitidos:** Administrador.
+
+        RN02: somente administradores cadastram procedimentos e vinculam checklists padrão.
+  /surgeries/{id}/kit:
+    parameters:
+      - $ref: '#/components/parameters/SurgeryId'
+    get:
+      tags: [Procedimentos]
+      summary: Itens esperados para o procedimento
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+
+        Retorna os itens do checklist padrão **ativo** do procedimento, no formato usado pela tela de kits e pela checagem por voz.
+      operationId: getSurgeryKit
+      responses:
+        '200':
+          description: Itens do kit do procedimento.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EquipmentItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Checklists padrão (RF04) ─────────────────────────────
+      x-roles: [admin, nurse, technician]
+  /surgeries/{id}/checklists:
+    parameters:
+      - $ref: '#/components/parameters/SurgeryId'
+    get:
+      tags: [Checklists padrão]
+      summary: Lista as versões de checklist padrão do procedimento
+      operationId: listStandardChecklists
+      responses:
+        '200':
+          description: Versões do checklist, da mais recente para a mais antiga.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StandardChecklist'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    post:
+      tags: [Checklists padrão]
+      summary: Vincula uma nova versão de checklist padrão
+      description: |
+        **Perfis permitidos:** Administrador.
+
+        RN02: somente administradores cadastram procedimentos e vinculam checklists padrão.
+
+        Cria uma nova versão e a torna a versão ativa do procedimento. A versão anterior é
+        mantida, inativa, para preservar o histórico das checagens já realizadas.
+      operationId: createStandardChecklist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StandardChecklistInput'
+      responses:
+        '201':
+          description: Checklist vinculado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardChecklist'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Já existe uma versão com este identificador para o procedimento.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin]
+  /surgeries/{id}/checklists/active:
+    parameters:
+      - $ref: '#/components/parameters/SurgeryId'
+    get:
+      tags: [Checklists padrão]
+      summary: Retorna o checklist padrão ativo do procedimento
+      operationId: getActiveStandardChecklist
+      responses:
+        '200':
+          description: Checklist ativo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardChecklist'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Procedimento inexistente ou sem checklist vinculado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Checagens (RF05–RF09) ─────────────────────────────
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+  /checks:
+    get:
+      tags: [Checagens]
+      summary: Histórico de checagens (RF08)
+      operationId: listChecks
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/CheckStatus'
+        - name: surgeryId
+          in: query
+          schema:
+            type: string
+        - name: operatorId
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Checagens encontradas, da mais recente para a mais antiga.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CheckSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    post:
+      tags: [Checagens]
+      summary: Inicia a checagem de um procedimento (RF05)
+      description: |
+        **Perfis permitidos:** Enfermeiro(a) Instrumentador(a) (UC05).
+
+        Cria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF05). Comando de voz equivalente: "iniciar".
+      operationId: startCheck
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckStartInput'
+      responses:
+        '201':
+          description: Checagem iniciada.
+          headers:
+            Location:
+              description: URL da checagem criada.
+              schema:
+                type: string
+                example: /api/v1/checks/42
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Check'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Procedimento inexistente ou sem checklist padrão ativo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [nurse]
+  /checks/{id}:
+    parameters:
+      - $ref: '#/components/parameters/CheckId'
+    get:
+      tags: [Checagens]
+      summary: Detalha uma checagem com itens e divergências
+      operationId: getCheck
+      responses:
+        '200':
+          description: Checagem encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Check'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+  /checks/{id}/items/{itemId}:
+    parameters:
+      - $ref: '#/components/parameters/CheckId'
+      - name: itemId
+        in: path
+        required: true
+        description: ID do item da checagem.
+        schema:
+          type: string
+        example: '7'
+    patch:
+      tags: [Checagens]
+      summary: Confirma, pula, marca divergente ou volta o item para pendente (RF06)
+      description: |
+        **Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante (UC06 e UC07). O Administrador apenas consulta.
+
+        Registra a marcação do item, por voz ou toque (RNF02). Comandos de voz equivalentes: "confirmar" e "pular".
+
+        Estados gravados (tabela `item_checagem`): `confirmado`, `pulado`, `divergente` e `pendente`.
+        - **Pulado** não é divergência: não gera registro em `divergencia`, mas aparece no relatório como não conferido (UC07, RNF06).
+        - **RN07:** se `status = confirmado` e `foundQuantity` for diferente da esperada, o servidor grava o item como `divergente` e cria a divergência automaticamente: `faltante` quando a quantidade for menor e `excedente` quando for maior.
+        - **RN04:** `status = divergente` cria a divergência (`faltante`, automática) e ela entra no relatório.
+        - Voltar para `pendente` limpa quantidade, método e horário e remove a divergência automática.
+        - Um item já marcado pode ser corrigido enquanto a checagem estiver `em_andamento`. Depois de finalizada ou cancelada a checagem é imutável (RN03, 409).
+      operationId: updateCheckItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckItemUpdate'
+            examples:
+              confirmarPorVoz:
+                summary: Confirmar por voz
+                value:
+                  status: confirmado
+                  foundQuantity: 2
+                  method: voz
+                  transcript: confirmar pinça kelly
+              pularPorToque:
+                summary: Pular por toque
+                value:
+                  status: pulado
+                  method: toque
+              divergente:
+                summary: Item faltante
+                value:
+                  status: divergente
+                  foundQuantity: 1
+                  method: toque
+                  notes: Apenas uma unidade na bandeja.
+              excedenteRN07:
+                summary: Confirmado com quantidade maior (RN07 → excedente)
+                value:
+                  status: confirmado
+                  foundQuantity: 5
+                  method: toque
+      responses:
+        '200':
+          description: Item atualizado. Retorna a checagem completa com o progresso recalculado (o item pode ter sido convertido em `divergente` pela RN07).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Check'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CheckClosed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [nurse, technician]
+  /checks/{id}/divergences:
+    parameters:
+      - $ref: '#/components/parameters/CheckId'
+    get:
+      tags: [Checagens]
+      summary: Lista as divergências da checagem (RF09)
+      operationId: listDivergences
+      responses:
+        '200':
+          description: Divergências registradas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Divergence'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    post:
+      tags: [Checagens]
+      summary: Registra divergência manual (RF09)
+      description: |
+        **Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante.
+
+        Usado principalmente para itens **excedentes** (presentes na bandeja mas fora do
+        checklist). Informe `instrumentId` para um instrumental cadastrado ou `description`
+        para um item não cadastrado.
+      operationId: createDivergence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DivergenceInput'
+            example:
+              type: excedente
+              instrumentId: '12'
+              foundQuantity: 1
+              notes: Tesoura Metzenbaum extra na bandeja.
+      responses:
+        '201':
+          description: Divergência registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Divergence'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CheckClosed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [nurse, technician]
+  /checks/{id}/finalize:
+    parameters:
+      - $ref: '#/components/parameters/CheckId'
+    post:
+      tags: [Checagens]
+      summary: Finaliza a checagem e gera o relatório (RF07, RF10)
+      description: |
+        **Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante.
+
+        Exige que nenhum item esteja `pendente` (RN01). Após finalizar, a checagem fica
+        imutável (RN03) e o relatório de conferência é gerado com todas as divergências (RN04).
+        Comando de voz equivalente: "finalizar".
+      operationId: finalizeCheck
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes:
+                  type: string
+                  maxLength: 500
+                  example: Conferência concluída sem intercorrências.
+      responses:
+        '200':
+          description: Checagem finalizada. Retorna o relatório gerado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Há itens pendentes (RN01) ou a checagem já foi finalizada/cancelada (RN03).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                itensPendentes:
+                  summary: RN01
+                  value:
+                    message: Ainda há 3 itens pendentes. Confirme, pule ou marque como divergente antes de finalizar.
+                    code: ITENS_PENDENTES
+                    details:
+                      pendingItems: 3
+                jaFinalizada:
+                  summary: RN03
+                  value:
+                    message: Esta checagem já foi finalizada e não pode ser alterada.
+                    code: CHECAGEM_ENCERRADA
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [nurse, technician]
+  /checks/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/CheckId'
+    post:
+      tags: [Checagens]
+      summary: Cancela uma checagem em andamento
+      description: |
+        **Perfis permitidos:** Enfermeiro(a) Instrumentador(a).
+
+        A checagem cancelada permanece no histórico e não gera relatório.
+      operationId: cancelCheck
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                  example: Cirurgia remarcada.
+      responses:
+        '200':
+          description: Checagem cancelada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Check'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CheckClosed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Relatórios (RF08, RF10) ─────────────────────────────
+      x-roles: [nurse]
+  /reports:
+    get:
+      tags: [Relatórios]
+      summary: Lista relatórios de conferência
+      operationId: listReports
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ok, divergencia]
+        - name: surgeryId
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Relatórios encontrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChecklistReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    post:
+      tags: [Relatórios]
+      summary: Obtém o relatório de uma checagem finalizada (compatibilidade com o frontend)
+      description: |
+        **Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante.
+
+        **Obsoleto.** Mantido para o frontend atual, que monta o relatório no cliente. No banco, `relatorio_conferencia` exige `checagem_id` e é **gerado por gatilho** quando a checagem é finalizada (RN04), então o cliente não cria relatórios.
+
+        Esta rota recebe o `checkId` de uma checagem **finalizada** e devolve o relatório já gerado (operação idempotente). O fluxo definitivo é `POST /checks/{id}/finalize`, que já retorna o relatório.
+      operationId: createReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportCreateRequest'
+            example:
+              checkId: '42'
+      responses:
+        '200':
+          description: Relatório da checagem.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: A checagem ainda não foi finalizada (não há relatório) ou foi cancelada (RN08).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [nurse, technician]
+      deprecated: true
+  /reports/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Relatórios]
+      summary: Detalha um relatório de conferência
+      operationId: getReport
+      responses:
+        '200':
+          description: Relatório encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ───────────────────────────── Estoque ─────────────────────────────
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+  /stock:
+    get:
+      tags: [Estoque]
+      summary: Lista itens de estoque
+      operationId: listStock
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/StockStatus'
+        - name: category
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Itens de estoque.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+    post:
+      tags: [Estoque]
+      summary: Cria item de estoque
+      operationId: createStockItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockInput'
+      responses:
+        '201':
+          description: Item criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin]
+      description: |
+        **Perfis permitidos:** Administrador.
+
+        No banco, `estoque_item` referencia um instrumental (nome, unidade e categoria ficam em `instrumental`). Sem `instrumentId`, o backend cadastra o instrumental e cria o saldo na mesma transação; com `instrumentId`, usa o instrumental existente. Cada instrumental tem **um** saldo (409 se já existir).
+  /stock/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    put:
+      tags: [Estoque]
+      summary: Atualiza item de estoque
+      operationId: updateStockItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockInput'
+      responses:
+        '200':
+          description: Item atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin]
+      description: |
+        **Perfis permitidos:** Administrador.
+    delete:
+      tags: [Estoque]
+      summary: Exclui item de estoque
+      operationId: deleteStockItem
+      responses:
+        '204':
+          description: Item excluído.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Item possui movimentações e não pode ser excluído.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin]
+      description: |
+        **Perfis permitidos:** Administrador.
+  /stock/{id}/adjustments:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Estoque]
+      summary: Registra entrada ou saída de estoque
+      description: |
+        **Perfis permitidos:** Administrador.
+
+        `delta` positivo para entrada e negativo para saída; diferente de zero. Cada ajuste grava uma movimentação imutável (`estoque_movimentacao`) e atualiza o saldo; o saldo nunca fica negativo (400).
+      operationId: adjustStock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAdjustment'
+            example:
+              delta: -2
+              reason: Separado para cirurgia de joelho, sala 3.
+      responses:
+        '200':
+          description: Estoque atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockItem'
+        '400':
+          description: Delta igual a zero ou estoque insuficiente para a saída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Estoque insuficiente para esta movimentação.
+                code: ESTOQUE_INSUFICIENTE
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+      x-roles: [admin]
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token retornado em `accessToken` no login. O frontend o mantém apenas em memória.
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: traycheck_session
+      description: Cookie de sessão HttpOnly, alternativa ao token bearer.
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      description: Identificador do recurso.
+      schema:
+        type: string
+      example: '1'
+    SurgeryId:
+      name: id
+      in: path
+      required: true
+      description: Identificador do procedimento (código legível, ex. `joelho`, ou ID numérico).
+      schema:
+        type: string
+      example: joelho
+    CheckId:
+      name: id
+      in: path
+      required: true
+      description: Identificador da checagem.
+      schema:
+        type: string
+      example: '42'
+    Search:
+      name: q
+      in: query
+      required: false
+      description: Busca textual por nome.
+      schema:
+        type: string
+        maxLength: 120
+    From:
+      name: from
+      in: query
+      required: false
+      description: Data inicial (inclusive).
+      schema:
+        type: string
+        format: date
+      example: '2026-11-01'
+    To:
+      name: to
+      in: query
+      required: false
+      description: Data final (inclusive).
+      schema:
+        type: string
+        format: date
+      example: '2026-11-30'
+
+  responses:
+    BadRequest:
+      description: Requisição inválida (campos ausentes, formato ou valores fora do permitido).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Dados inválidos.
+            code: VALIDACAO
+            details:
+              fields:
+                email: Informe um e-mail válido.
+    Unauthorized:
+      description: Não autenticado ou sessão expirada.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Sessão expirada. Faça login novamente.
+            code: NAO_AUTENTICADO
+    Forbidden:
+      description: O perfil do usuário não permite esta ação (RN02, RN05).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Seu perfil não tem permissão para esta ação.
+            code: SEM_PERMISSAO
+    NotFound:
+      description: Recurso não encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Registro não encontrado.
+            code: NAO_ENCONTRADO
+    Conflict:
+      description: Conflito com um registro existente (código, nome ou e-mail duplicado).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Já existe um registro com este código.
+            code: DUPLICADO
+    CheckClosed:
+      description: A checagem já foi finalizada ou cancelada e não aceita alterações (RN03).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Esta checagem já foi finalizada e não pode ser alterada.
+            code: CHECAGEM_ENCERRADA
+    InternalError:
+      description: Erro interno no servidor.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Erro interno. Tente novamente em instantes.
+            code: ERRO_INTERNO
+
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Mensagem legível, exibida pelo frontend.
+        code:
+          type: string
+          description: Código estável do erro, para tratamento no cliente.
+        details:
+          type: object
+          additionalProperties: true
+          description: Informações extras (ex. erros por campo).
+
+    # ── Autenticação e usuários ──
+    UserRole:
+      type: string
+      enum: [admin, nurse, technician]
+      description: 'admin = Administrador; nurse = Enf. Instrumentador(a); technician = Circulante.'
+      example: nurse
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 160
+        password:
+          type: string
+          format: password
+          minLength: 6
+
+    LoginResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: '#/components/schemas/AuthUser'
+        accessToken:
+          type: string
+          description: Token bearer opcional (omitido quando a sessão é por cookie).
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    AuthUser:
+      type: object
+      required: [id, name, email, role, shift, initials, hospital, phone, joinedAt]
+      properties:
+        id:
+          type: string
+          example: u1
+        name:
+          type: string
+          example: Ana Silva
+        email:
+          type: string
+          format: email
+          example: ana.silva@hospitalcentral.br
+        role:
+          $ref: '#/components/schemas/UserRole'
+        shift:
+          type: string
+          example: Turno A (07:00–19:00)
+          description: Turno (`usuario.turno`).
+        initials:
+          type: string
+          example: AS
+        hospital:
+          type: string
+          example: Hospital Central
+          description: Sem coluna no banco; valor de configuração do backend.
+        phone:
+          type: string
+          example: (92) 99999-0000
+          description: Telefone (`usuario.telefone`).
+        crm:
+          type: string
+          description: 'Registro profissional (`usuario.registro_profissional`, ex.: COREN).'
+          example: COREN-AM 123456
+        joinedAt:
+          type: string
+          description: Data de cadastro (`usuario.criado_em`), formato dd/MM/yyyy.
+          example: 15/03/2024
+
+    AppUser:
+      type: object
+      required: [id, name, email, role, shift, status, lastActive, initials]
+      properties:
+        id:
+          type: string
+          example: u2
+        name:
+          type: string
+          example: Rafael Lima
+        email:
+          type: string
+          format: email
+          example: rafael.lima@hospitalcentral.br
+        role:
+          $ref: '#/components/schemas/UserRole'
+        shift:
+          type: string
+          example: Turno B (19:00–07:00)
+        status:
+          type: string
+          enum: [active, inactive]
+        lastActive:
+          type: string
+          description: Último acesso, em texto para exibição.
+          example: Hoje, 08:42
+        initials:
+          type: string
+          example: RL
+
+    UserInput:
+      type: object
+      required: [name, email, role, shift]
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 120
+          example: Rafael Lima
+        email:
+          type: string
+          format: email
+          maxLength: 160
+          example: rafael.lima@hospitalcentral.br
+        role:
+          $ref: '#/components/schemas/UserRole'
+        shift:
+          type: string
+          maxLength: 60
+          example: Turno B (19:00–07:00)
+
+    UserStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [active, inactive]
+    ProfileInput:
+      type: object
+      required: [name, phone]
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 120
+          example: Ana Silva
+        phone:
+          type: string
+          maxLength: 30
+          example: (92) 99999-0000
+
+    NotificationPreferences:
+      type: object
+      required: [stockAlert, surgeryReminder, voiceChecklist, weeklyReport]
+      properties:
+        stockAlert:
+          type: boolean
+          example: true
+        surgeryReminder:
+          type: boolean
+          example: true
+        voiceChecklist:
+          type: boolean
+          example: true
+        weeklyReport:
+          type: boolean
+          example: false
+
+    PasswordChange:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+
+    # ── Dashboard ──
+    DashboardSummary:
+      type: object
+      required: [totalSurgeries, readyKits, criticalStockItems, lowStockItems, stockItemCount, schedule]
+      properties:
+        totalSurgeries:
+          type: integer
+          minimum: 0
+          example: 8
+        readyKits:
+          type: integer
+          minimum: 0
+          example: 5
+        criticalStockItems:
+          type: integer
+          minimum: 0
+          example: 2
+        lowStockItems:
+          type: integer
+          minimum: 0
+          example: 4
+        stockItemCount:
+          type: integer
+          minimum: 0
+          example: 36
+        surgeryTrend:
+          type: object
+          required: [text, positive]
+          properties:
+            text:
+              type: string
+              example: +2 em relação a ontem
+            positive:
+              type: boolean
+              example: true
+          description: Sem tabela nas migrações V001–V005; dados de demonstração até a V006.
+        schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleEntry'
+
+          description: Sem tabela nas migrações V001–V005 (sem tabela de agenda); dados de demonstração até a V006.
+    ScheduleEntry:
+      type: object
+      required: [id, surgeryId, time, surgery, room, surgeon, status]
+      properties:
+        id:
+          type: string
+          example: s1
+        surgeryId:
+          type: string
+          example: joelho
+        time:
+          type: string
+          example: '08:00'
+        surgery:
+          type: string
+          example: Artroplastia de Joelho
+        room:
+          type: string
+          example: Sala 3
+        surgeon:
+          type: string
+          example: Dr. Carlos Mendes
+        status:
+          type: string
+          enum: [em-andamento, aguardando, concluida]
+    InstrumentCategory:
+      type: string
+      enum: [EPI, Instrumental, Descartável, Anestesia, Implante]
+      example: Instrumental
+
+    Instrument:
+      type: object
+      required: [id, code, name, category, unit, critical, active]
+      properties:
+        id:
+          type: string
+          example: '12'
+        code:
+          type: string
+          example: INS-PINCA-KELLY
+        name:
+          type: string
+          example: Pinça Kelly reta 14cm
+        category:
+          $ref: '#/components/schemas/InstrumentCategory'
+        unit:
+          type: string
+          example: unid
+        critical:
+          type: boolean
+          description: Item cuja falta impede a cirurgia.
+          example: true
+        active:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    InstrumentInput:
+      type: object
+      required: [code, name, category]
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: INS-PINCA-KELLY
+        name:
+          type: string
+          maxLength: 120
+          example: Pinça Kelly reta 14cm
+        category:
+          $ref: '#/components/schemas/InstrumentCategory'
+        unit:
+          type: string
+          maxLength: 20
+          default: unid
+        critical:
+          type: boolean
+          default: false
+        active:
+          type: boolean
+          default: true
+
+    KitItem:
+      type: object
+      required: [instrumentId, quantity]
+      properties:
+        instrumentId:
+          type: string
+          example: '12'
+        instrumentName:
+          type: string
+          readOnly: true
+          example: Pinça Kelly reta 14cm
+        quantity:
+          type: integer
+          minimum: 1
+          example: 4
+
+    Kit:
+      type: object
+      required: [id, code, name, active, items]
+      properties:
+        id:
+          type: string
+          example: '3'
+        code:
+          type: string
+          example: KIT-ORTO-BASICO
+        name:
+          type: string
+          example: Kit Ortopedia Básico
+        description:
+          type: string
+          example: Instrumental básico para cirurgias ortopédicas.
+        active:
+          type: boolean
+          example: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KitItem'
+
+    KitInput:
+      type: object
+      required: [code, name, items]
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: KIT-ORTO-BASICO
+        name:
+          type: string
+          maxLength: 120
+          example: Kit Ortopedia Básico
+        description:
+          type: string
+          maxLength: 500
+        active:
+          type: boolean
+          default: true
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/KitItem'
+
+    Surgery:
+      type: object
+      description: |
+        Procedimento cirúrgico. Os campos `color`, `bgColor`, `scheduledToday`, `room` e
+        `time` são de apresentação, usados pela tela de seleção de cirurgia do frontend.
+      required: [id, name, specialty, duration]
+      properties:
+        id:
+          type: string
+          example: joelho
+        code:
+          type: string
+          example: joelho
+        name:
+          type: string
+          example: Artroplastia de Joelho
+        specialty:
+          type: string
+          example: Ortopedia
+        description:
+          type: string
+          example: Substituição total da articulação do joelho.
+        duration:
+          type: string
+          description: Duração estimada.
+          example: 2–3h
+        active:
+          type: boolean
+          example: true
+        activeChecklistVersion:
+          type: string
+          nullable: true
+          example: '1.0'
+        color:
+          type: string
+          example: '#2563eb'
+          description: 'Apresentação; sem coluna no banco, definido pelo backend (ex.: por especialidade).'
+        bgColor:
+          type: string
+          example: '#eff6ff'
+          description: 'Apresentação; sem coluna no banco, definido pelo backend (ex.: por especialidade).'
+        scheduledToday:
+          type: integer
+          minimum: 0
+          example: 2
+          description: Sem tabela nas migrações V001–V005 (sem tabela de agenda); dados de demonstração até a V006.
+        room:
+          type: string
+          example: Sala 3
+          description: Sem tabela nas migrações V001–V005 (sem tabela de agenda); dados de demonstração até a V006.
+        time:
+          type: string
+          example: '08:00'
+
+          description: Sem tabela nas migrações V001–V005 (sem tabela de agenda); dados de demonstração até a V006.
+    SurgeryInput:
+      type: object
+      required: [code, name, specialty]
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          pattern: '^[a-z0-9-]+$'
+          example: joelho
+        name:
+          type: string
+          maxLength: 120
+          example: Artroplastia de Joelho
+        specialty:
+          type: string
+          maxLength: 80
+          example: Ortopedia
+        description:
+          type: string
+          maxLength: 500
+        duration:
+          type: string
+          maxLength: 20
+          example: 2–3h
+        active:
+          type: boolean
+          default: true
+
+    EquipmentItem:
+      type: object
+      required: [id, name, quantity, unit, category, critical]
+      properties:
+        id:
+          type: string
+          example: '12'
+        name:
+          type: string
+          example: Pinça Kelly reta 14cm
+        quantity:
+          type: integer
+          minimum: 1
+          example: 4
+        unit:
+          type: string
+          example: unid
+        category:
+          $ref: '#/components/schemas/InstrumentCategory'
+        critical:
+          type: boolean
+          example: true
+
+    # ── Checklist padrão (RF04) ──
+    StandardChecklistItem:
+      type: object
+      required: [id, instrumentId, instrumentName, expectedQuantity, order]
+      properties:
+        id:
+          type: string
+          example: '31'
+        instrumentId:
+          type: string
+          example: '12'
+        instrumentName:
+          type: string
+          example: Pinça Kelly reta 14cm
+        category:
+          $ref: '#/components/schemas/InstrumentCategory'
+        unit:
+          type: string
+          example: unid
+        critical:
+          type: boolean
+          example: true
+        expectedQuantity:
+          type: integer
+          minimum: 1
+          example: 4
+        order:
+          type: integer
+          minimum: 0
+          description: Ordem de leitura na checagem por voz.
+          example: 1
+
+    StandardChecklist:
+      type: object
+      required: [id, surgeryId, version, active, createdAt, items]
+      properties:
+        id:
+          type: string
+          example: '5'
+        surgeryId:
+          type: string
+          example: joelho
+        version:
+          type: string
+          example: '1.0'
+        active:
+          type: boolean
+          example: true
+        createdBy:
+          type: string
+          example: Administrador
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-11-03T14:20:00-04:00'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StandardChecklistItem'
+
+    StandardChecklistInput:
+      type: object
+      required: [version, items]
+      properties:
+        version:
+          type: string
+          maxLength: 20
+          example: '1.1'
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [instrumentId, expectedQuantity]
+            properties:
+              instrumentId:
+                type: string
+                example: '12'
+              expectedQuantity:
+                type: integer
+                minimum: 1
+                example: 4
+              order:
+                type: integer
+                minimum: 0
+                example: 1
+      example:
+        version: '1.1'
+        items:
+          - instrumentId: '12'
+            expectedQuantity: 4
+            order: 1
+          - instrumentId: '15'
+            expectedQuantity: 2
+            order: 2
+
+    # ── Checagem (RF05–RF09) ──
+    CheckStatus:
+      type: string
+      enum: [em_andamento, finalizada, cancelada]
+      example: em_andamento
+
+    CheckItemStatus:
+      type: string
+      enum: [pendente, confirmado, pulado, divergente]
+      example: pendente
+
+    ConfirmationMethod:
+      type: string
+      enum: [voz, toque]
+      description: Como o item foi marcado (RNF02 — toque como alternativa à voz).
+
+    CheckStartInput:
+      type: object
+      required: [surgeryId]
+      properties:
+        surgeryId:
+          type: string
+          example: joelho
+        room:
+          type: string
+          maxLength: 40
+          example: Sala 3
+        notes:
+          type: string
+          maxLength: 500
+
+    CheckItem:
+      type: object
+      required: [id, checklistItemId, instrumentId, name, expectedQuantity, status]
+      properties:
+        id:
+          type: string
+          example: '7'
+        checklistItemId:
+          type: string
+          example: '31'
+        instrumentId:
+          type: string
+          example: '12'
+        name:
+          type: string
+          example: Pinça Kelly reta 14cm
+        unit:
+          type: string
+          example: unid
+        category:
+          $ref: '#/components/schemas/InstrumentCategory'
+        critical:
+          type: boolean
+          example: true
+        order:
+          type: integer
+          example: 1
+        expectedQuantity:
+          type: integer
+          minimum: 1
+          example: 4
+        foundQuantity:
+          type: integer
+          minimum: 0
+          nullable: true
+          example: 4
+        status:
+          $ref: '#/components/schemas/CheckItemStatus'
+        method:
+          type: string
+          enum: [voz, toque]
+          nullable: true
+          description: Como o item foi marcado (RNF02 — toque como alternativa à voz).
+        transcript:
+          type: string
+          nullable: true
+          description: Texto reconhecido por voz que gerou a marcação.
+          example: confirmar pinça kelly
+        recordedAt:
+          type: string
+          format: date-time
+          nullable: true
+        recordedBy:
+          type: string
+          nullable: true
+          example: Ana Silva
+
+    CheckItemUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [confirmado, pulado, divergente, pendente]
+        foundQuantity:
+          type: integer
+          minimum: 0
+          description: Quantidade encontrada. Obrigatória quando `status = divergente`. Em `confirmado`, se omitida assume a esperada; se diferente da esperada, aplica-se a RN07.
+        method:
+          $ref: '#/components/schemas/ConfirmationMethod'
+        transcript:
+          type: string
+          maxLength: 500
+        notes:
+          type: string
+          maxLength: 500
+
+    DivergenceType:
+      type: string
+      enum: [faltante, excedente, outro]
+    Divergence:
+      type: object
+      required: [id, checkId, type, automatic, recordedAt]
+      properties:
+        id:
+          type: string
+          example: '3'
+        checkId:
+          type: string
+          example: '42'
+        checkItemId:
+          type: string
+          nullable: true
+          example: '7'
+        instrumentId:
+          type: string
+          nullable: true
+          example: '12'
+        description:
+          type: string
+          nullable: true
+          description: Nome do item quando não cadastrado.
+          example: Pinça Kelly reta 14cm
+        type:
+          $ref: '#/components/schemas/DivergenceType'
+        expectedQuantity:
+          type: integer
+          nullable: true
+          example: 4
+        foundQuantity:
+          type: integer
+          nullable: true
+          example: 3
+        notes:
+          type: string
+          nullable: true
+        automatic:
+          type: boolean
+          description: true quando gerada automaticamente a partir de item divergente (RN04).
+          example: true
+        recordedAt:
+          type: string
+          format: date-time
+        recordedBy:
+          type: string
+          nullable: true
+          example: Ana Silva
+
+    DivergenceInput:
+      type: object
+      required: [type]
+      description: Informe ao menos um entre `instrumentId` e `description`.
+      properties:
+        type:
+          $ref: '#/components/schemas/DivergenceType'
+        instrumentId:
+          type: string
+        description:
+          type: string
+          maxLength: 120
+        expectedQuantity:
+          type: integer
+          minimum: 0
+        foundQuantity:
+          type: integer
+          minimum: 0
+        notes:
+          type: string
+          maxLength: 500
+
+    CheckProgress:
+      type: object
+      required: [total, pending, confirmed, skipped, divergent]
+      properties:
+        total:
+          type: integer
+          example: 12
+        pending:
+          type: integer
+          example: 3
+        confirmed:
+          type: integer
+          example: 8
+        skipped:
+          type: integer
+          example: 0
+        divergent:
+          type: integer
+          example: 1
+
+    CheckSummary:
+      type: object
+      required: [id, surgeryId, surgeryName, checklistVersion, operator, status, startedAt, progress]
+      properties:
+        id:
+          type: string
+          example: '42'
+        surgeryId:
+          type: string
+          example: joelho
+        surgeryName:
+          type: string
+          example: Artroplastia de Joelho
+        checklistVersion:
+          type: string
+          example: '1.0'
+        operatorId:
+          type: string
+          example: u1
+        operator:
+          type: string
+          example: Ana Silva
+        status:
+          $ref: '#/components/schemas/CheckStatus'
+        room:
+          type: string
+          nullable: true
+          example: Sala 3
+        startedAt:
+          type: string
+          format: date-time
+          example: '2026-11-10T07:42:10-04:00'
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reportId:
+          type: string
+          nullable: true
+          description: Relatório gerado na finalização.
+        progress:
+          $ref: '#/components/schemas/CheckProgress'
+
+    Check:
+      allOf:
+        - $ref: '#/components/schemas/CheckSummary'
+        - type: object
+          required: [items, divergences]
+          properties:
+            notes:
+              type: string
+              nullable: true
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/CheckItem'
+            divergences:
+              type: array
+              items:
+                $ref: '#/components/schemas/Divergence'
+
+    # ── Relatórios (RF10) ──
+    ReportItem:
+      type: object
+      required: [id, name, quantity, unit, category, critical, status]
+      properties:
+        id:
+          type: string
+          example: '12'
+        name:
+          type: string
+          example: Pinça Kelly reta 14cm
+        quantity:
+          type: integer
+          example: 4
+        unit:
+          type: string
+          example: unid
+        category:
+          type: string
+          example: Instrumental
+        critical:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [confirmed, skipped, missing, pending]
+          description: 'Situação do item no relatório. Mapeamento com `item_checagem.status`: `confirmed` = confirmado; `skipped` = pulado (não conferido, sem divergência); `missing` = divergente; `pending` = pendente (nunca ocorre em relatório finalizado, RN01).'
+        confirmedAt:
+          type: string
+          description: Horário da confirmação (HH:mm:ss).
+          example: '07:45:12'
+
+    ReportCreateRequest:
+      type: object
+      required: [checkId]
+      description: Pedido do relatório de uma checagem finalizada. O servidor recalcula tudo; o cliente envia só o `checkId`.
+      properties:
+        checkId:
+          type: string
+          example: '42'
+    ChecklistReport:
+      type: object
+      description: Relatório de conferência gerado pelo servidor ao finalizar a checagem (tabela `relatorio_conferencia`). É imutável (RN03). `total = confirmed + skipped + missing`.
+      required: [id, checkId, surgeryId, surgeryName, specialty, operator, operatorRole, date, time, duration, confirmed, skipped, missing, total, status, items]
+      properties:
+        id:
+          type: string
+          example: r1
+        checkId:
+          type: string
+          description: Checagem que originou o relatório (`relatorio_conferencia.checagem_id`).
+          example: '42'
+        checklistVersion:
+          type: string
+          description: Versão do checklist padrão usada.
+          example: '1.0'
+        surgeryId:
+          type: string
+          example: joelho
+        surgeryName:
+          type: string
+          example: Artroplastia de Joelho
+        specialty:
+          type: string
+          example: Ortopedia
+        operator:
+          type: string
+          example: Ana Silva
+        operatorRole:
+          $ref: '#/components/schemas/UserRole'
+        date:
+          type: string
+          description: dd/MM/yyyy
+          example: 10/11/2026
+        time:
+          type: string
+          description: HH:mm
+          example: 07:42
+        duration:
+          type: string
+          example: 6min 32s
+        confirmed:
+          type: integer
+          minimum: 0
+          description: Itens confirmados.
+          example: 10
+        skipped:
+          type: integer
+          minimum: 0
+          description: 'Itens pulados (`pulados`): não conferidos, sem divergência.'
+          example: 1
+        missing:
+          type: integer
+          minimum: 0
+          description: Itens divergentes (`divergentes`).
+          example: 1
+        total:
+          type: integer
+          minimum: 0
+          example: 12
+        divergences:
+          type: integer
+          minimum: 0
+          description: Total de registros de divergência, incluindo excedentes (`divergencias`).
+          example: 2
+        status:
+          type: string
+          example: divergencia
+          description: '`divergencia` quando há ao menos uma divergência; senão `ok`.'
+          enum: [ok, divergencia]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportItem'
+        divergenceDetails:
+          type: array
+          description: Divergências registradas (RN04), com faltantes e excedentes.
+          items:
+            $ref: '#/components/schemas/Divergence'
+    StockStatus:
+      type: string
+      enum: [ok, low, critical]
+      description: 'low = abaixo do mínimo; critical = abaixo da metade do mínimo.'
+
+    StockItem:
+      type: object
+      required: [id, name, available, minimum, unit, category, status, lastUpdated, updatedBy]
+      properties:
+        id:
+          type: string
+          example: st1
+        instrumentId:
+          type: string
+          readOnly: true
+          description: Instrumental ao qual o saldo pertence (`estoque_item.instrumental_id`, um saldo por instrumental).
+          example: '12'
+        name:
+          type: string
+          example: Luva cirúrgica estéril 7,5
+        available:
+          type: integer
+          minimum: 0
+          example: 40
+        minimum:
+          type: integer
+          minimum: 0
+          example: 50
+        unit:
+          type: string
+          example: par
+        category: &id001
+          $ref: '#/components/schemas/InstrumentCategory'
+        status:
+          $ref: '#/components/schemas/StockStatus'
+        lastUpdated:
+          type: string
+          example: 10/11/2026 07:30
+        updatedBy:
+          type: string
+          example: Administrador
+
+    StockInput:
+      type: object
+      required: [name, available, minimum, unit, category]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          example: Luva cirúrgica estéril 7,5
+        available:
+          type: integer
+          minimum: 0
+          example: 40
+        minimum:
+          type: integer
+          minimum: 0
+          example: 50
+        unit:
+          type: string
+          maxLength: 20
+          example: par
+        category: *id001
+        instrumentId:
+          type: string
+          description: Opcional. Vincula o saldo a um instrumental já cadastrado; se omitido, o backend cadastra o instrumental com `name`, `unit` e `category`.
+          example: '12'
+    StockAdjustment:
+      type: object
+      required: [delta]
+      properties:
+        delta:
+          type: integer
+          description: Positivo para entrada, negativo para saída; diferente de zero.
+          example: -2
+        reason:
+          type: string
+          maxLength: 200
