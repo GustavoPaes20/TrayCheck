@@ -6,7 +6,7 @@ Estratégia em camadas, conforme o plano de QA do Documento de Requisitos (§ Es
 | --- | --- | --- | --- | --- |
 | Unitários | `unit/` | Vitest + Testing Library (jsdom) | `test:unit` | Cliente da API, dados de demonstração, componentes isolados (login, conferência por voz, estoque, usuários, relatórios) |
 | Integração | `integration/` | Vitest + Testing Library | `test:integration` | `App` completo em modo demonstração e em modo conectado, com a API simulada em memória (`helpers/api-falsa.ts`) |
-| Contrato da API | `api/` | Newman (coleção Postman) | `test:api` | Os 22 endpoints de `src/docs/frontend-api-contract.md`: autenticação, permissões por perfil, validações, formato de erro, CORS |
+| Contrato da API | `api/` | Newman (coleção Postman) | `test:api` | Os 22 endpoints de `src/docs/frontend-api-contract.md` (o que o frontend usa hoje): autenticação, permissões por perfil, validações, formato de erro, CORS |
 | E2E | `e2e/` | Playwright (Chromium) | `test:e2e` | Fluxos reais no navegador: demonstração (desktop), conectado à API e navegação móvel |
 
 `test` roda unitários + integração; `test:coverage` também mede cobertura (piso em `src/vitest.config.ts`); `typecheck` verifica tipos do app **e** dos testes. O workflow `.github/workflows/ci.yml` executa tudo: build + tipos, testes com cobertura, Newman e E2E.
@@ -19,7 +19,11 @@ O repositório não tem backend. `api/servidor-de-referencia.mjs` implementa o c
 API_BASE_URL=http://localhost:3000/api/v1 corepack pnpm@10.34.3 --dir src test:api
 ```
 
-A coleção é repetível contra APIs persistentes (usa um e-mail único por execução e restaura a senha que altera). **Premissas** do servidor de referência, a confirmar com quem implementar o backend: somente `admin` altera estoque (`POST/PUT/DELETE /stock`, ajustes) e gerencia usuários; qualquer perfil autenticado lê estoque, cirurgias e relatórios e cria relatórios; senha nova tem no mínimo 8 caracteres; `POST /reports` com item `pending` retorna `422` (RN01).
+A coleção é repetível contra APIs persistentes (usa um e-mail único por execução e restaura a senha que altera).
+
+**Relação com `docs/api/openapi.yaml` e `docs/api/postman_collection.json`.** Estes são o contrato e a coleção do backend real e cobrem muito mais rotas (checagens, checklists, kits...). A coleção de `tests/api/` é outra: verifica só as 22 rotas que o frontend usa hoje, do jeito que ele as usa (`src/docs/frontend-api-contract.md`), e roda no CI sem banco. Os códigos de status foram alinhados ao OpenAPI (login de inativo `401`, senha atual incorreta `400`, RN01 `409`). **Divergência conhecida:** `POST /reports` é rota de compatibilidade (obsoleta no OpenAPI, onde recebe um `checkId`); aqui ela segue o que o frontend envia hoje (relatório completo, `201`). Quando o frontend migrar para `POST /checks/{id}/finalize`, esta parte da coleção deve ser atualizada.
+
+**Premissas** do servidor de referência, a confirmar com quem implementar o backend: somente `admin` altera estoque (`POST/PUT/DELETE /stock`, ajustes) e gerencia usuários; qualquer perfil autenticado lê estoque, cirurgias e relatórios e cria relatórios; senha nova tem no mínimo 8 caracteres; relatório com item `pending` é recusado com `409` (RN01).
 
 ## Voz nos testes
 

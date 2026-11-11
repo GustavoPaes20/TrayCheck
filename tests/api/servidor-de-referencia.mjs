@@ -6,10 +6,10 @@
  * determinístico no CI. NÃO é o backend de produção: quando ele existir, aponte a coleção para ele
  * com `API_BASE_URL` (ver scripts/run-newman.mjs).
  *
- * Regras que a coleção verifica (a matriz exata de permissões é uma premissa documentada em tests/api/README.md):
+ * Regras que a coleção verifica (códigos de status alinhados a docs/api/openapi.yaml; a matriz exata de permissões é premissa documentada em tests/README.md):
  *  - RF01/RN05: sem sessão -> 401; perfil sem permissão -> 403.
  *  - RN02: somente administrador altera cadastro de estoque e gerencia usuários.
- *  - RN01: relatório com itens pendentes é recusado (422).
+ *  - RN01: relatório com itens pendentes é recusado (409, como em docs/api/openapi.yaml).
  *  - Erros no formato { "message": "..." }.
  *
  * Rota exclusiva de teste (fora do contrato): POST /__test__/reset restaura os dados iniciais.
@@ -143,7 +143,7 @@ export function criarServidor() {
     if (!Array.isArray(corpo.items) || corpo.items.length === 0) throw new ErroHttp(400, 'O relatório deve conter itens.');
     if (corpo.items.some((item) => !['confirmed', 'missing', 'pending'].includes(item?.status))) throw new ErroHttp(400, 'Status de item inválido.');
     // RN01: o checklist só finaliza com todos os itens tratados.
-    if (corpo.items.some((item) => item.status === 'pending')) throw new ErroHttp(422, 'O checklist só pode ser finalizado com todos os itens tratados.');
+    if (corpo.items.some((item) => item.status === 'pending')) throw new ErroHttp(409, 'O checklist só pode ser finalizado com todos os itens tratados.');
     const confirmados = corpo.items.filter((item) => item.status === 'confirmed').length;
     const faltantes = corpo.items.filter((item) => item.status === 'missing').length;
     if (corpo.confirmed !== confirmados || corpo.missing !== faltantes || corpo.total !== corpo.items.length) throw new ErroHttp(400, 'Os totais do relatório não correspondem aos itens.');
@@ -157,7 +157,7 @@ export function criarServidor() {
       if (!corpo || !ehTextoPreenchido(corpo.email) || typeof corpo.password !== 'string' || corpo.password === '') throw new ErroHttp(400, 'Informe e-mail e senha.');
       const conta = banco.contas.find((candidata) => candidata.email === corpo.email && candidata.password === corpo.password);
       if (!conta) throw new ErroHttp(401, 'E-mail ou senha incorretos.');
-      if (conta.status === 'inactive') throw new ErroHttp(403, 'Usuário inativo. Procure um administrador.');
+      if (conta.status === 'inactive') throw new ErroHttp(401, 'Usuário inativo. Procure um administrador.');
       const token = randomUUID();
       sessoes.set(token, conta.id);
       return {
@@ -274,11 +274,10 @@ export function criarServidor() {
       return { corpo: usuarioDaLista(conta) };
     }],
     ['PATCH', /^\/users\/([^/]+)\/status$/, ({ requisicao, corpo, parametros }) => {
-      const { conta: administrador } = exigirAdministrador(requisicao);
+      exigirAdministrador(requisicao);
       if (!corpo || !['active', 'inactive'].includes(corpo.status)) throw new ErroHttp(400, 'Status inválido.');
       const conta = banco.contas.find((candidata) => candidata.id === parametros[0]);
       if (!conta) throw new ErroHttp(404, 'Usuário não encontrado.');
-      if (conta.id === administrador.id && corpo.status === 'inactive') throw new ErroHttp(409, 'Você não pode desativar a própria conta.');
       conta.status = corpo.status;
       if (corpo.status === 'inactive') for (const [token, idDoUsuario] of sessoes) if (idDoUsuario === conta.id) sessoes.delete(token);
       return { corpo: usuarioDaLista(conta) };
@@ -303,7 +302,7 @@ export function criarServidor() {
     ['PUT', /^\/profile\/password$/, ({ requisicao, corpo }) => {
       const { conta } = exigirSessao(requisicao);
       if (!corpo || typeof corpo.currentPassword !== 'string' || typeof corpo.newPassword !== 'string') throw new ErroHttp(400, 'Informe a senha atual e a nova senha.');
-      if (corpo.currentPassword !== conta.password) throw new ErroHttp(403, 'Senha atual incorreta.');
+      if (corpo.currentPassword !== conta.password) throw new ErroHttp(400, 'Senha atual incorreta.');
       if (corpo.newPassword.length < 8) throw new ErroHttp(400, 'A nova senha deve ter pelo menos 8 caracteres.');
       conta.password = corpo.newPassword;
       return { status: 204 };
