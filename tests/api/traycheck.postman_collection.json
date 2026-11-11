@@ -1,0 +1,3181 @@
+{
+  "info": {
+    "name": "TrayCheck — Contrato da API v1",
+    "description": "Verifica o contrato descrito em src/docs/frontend-api-contract.md (autenticação, permissões por perfil, validações e formatos de erro). Variável baseUrl: ex. http://127.0.0.1:3000/api/v1.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('emailNovo')) pm.collectionVariables.set('emailNovo', `newman.${Date.now()}@hospitalcentral.br`);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3000/api/v1"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 · Sem sessão (RF01)",
+      "item": [
+        {
+          "name": "GET /auth/me sem credenciais → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /stock sem credenciais → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /users sem credenciais → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token inválido → 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenInexistente}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 · CORS e credenciais",
+      "item": [
+        {
+          "name": "OPTIONS (preflight) permite origem, credenciais e Authorization",
+          "request": {
+            "method": "OPTIONS",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "http://localhost:8443"
+              },
+              {
+                "key": "Access-Control-Request-Method",
+                "value": "POST"
+              },
+              {
+                "key": "Access-Control-Request-Headers",
+                "value": "content-type,authorization"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));",
+                  "pm.test('Reflete a origem', () => pm.response.to.have.header('Access-Control-Allow-Origin', 'http://localhost:8443'));",
+                  "pm.test('Permite credenciais (cookies)', () => pm.response.to.have.header('Access-Control-Allow-Credentials', 'true'));",
+                  "pm.test('Permite Authorization e Content-Type', () => { const h = pm.response.headers.get('Access-Control-Allow-Headers').toLowerCase(); pm.expect(h).to.include('authorization'); pm.expect(h).to.include('content-type'); });",
+                  "pm.test('Permite os métodos do contrato', () => { const m = pm.response.headers.get('Access-Control-Allow-Methods'); ['GET','POST','PUT','PATCH','DELETE'].forEach((x) => pm.expect(m).to.include(x)); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 · Autenticação (RF01)",
+      "item": [
+        {
+          "name": "POST /auth/login senha errada → 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.silva@hospitalcentral.br\",\n  \"password\": \"errada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);",
+                  "pm.test('Não confirma se o e-mail existe', () => pm.expect(pm.response.json().message).to.eql('E-mail ou senha incorretos.'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login sem corpo válido → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login usuário inativo → 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"pedro.nunes@hospitalcentral.br\",\n  \"password\": \"inativo123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (administrador) → 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@hospitalcentral.br\",\n  \"password\": \"admin123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Retorna { user, accessToken }', () => { pm.expect(j).to.have.property('user'); pm.expect(j.accessToken).to.be.a('string').and.not.empty; });",
+                  "pm.test('Perfil admin', () => pm.expect(j.user.role).to.eql('admin'));",
+                  "pm.test('Nunca devolve senha/hash', () => { pm.expect(j.user).to.not.have.property('password'); pm.expect(JSON.stringify(j)).to.not.match(/hash/i); });",
+                  "pm.test('AuthUser completo', () => ['id','name','email','role','shift','initials','hospital','phone','joinedAt'].forEach((c) => pm.expect(j.user, c).to.have.property(c)));",
+                  "pm.test('Define cookie de sessão HttpOnly', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.match(/HttpOnly/i));",
+                  "pm.collectionVariables.set('adminToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (enfermeira) → 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.silva@hospitalcentral.br\",\n  \"password\": \"senha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Retorna { user, accessToken }', () => { pm.expect(j).to.have.property('user'); pm.expect(j.accessToken).to.be.a('string').and.not.empty; });",
+                  "pm.test('Perfil nurse', () => pm.expect(j.user.role).to.eql('nurse'));",
+                  "pm.test('Nunca devolve senha/hash', () => { pm.expect(j.user).to.not.have.property('password'); pm.expect(JSON.stringify(j)).to.not.match(/hash/i); });",
+                  "pm.test('AuthUser completo', () => ['id','name','email','role','shift','initials','hospital','phone','joinedAt'].forEach((c) => pm.expect(j.user, c).to.have.property(c)));",
+                  "pm.test('Define cookie de sessão HttpOnly', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.match(/HttpOnly/i));",
+                  "pm.collectionVariables.set('nurseToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (técnico) → 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"rafael.lima@hospitalcentral.br\",\n  \"password\": \"circ123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Retorna { user, accessToken }', () => { pm.expect(j).to.have.property('user'); pm.expect(j.accessToken).to.be.a('string').and.not.empty; });",
+                  "pm.test('Perfil technician', () => pm.expect(j.user.role).to.eql('technician'));",
+                  "pm.test('Nunca devolve senha/hash', () => { pm.expect(j.user).to.not.have.property('password'); pm.expect(JSON.stringify(j)).to.not.match(/hash/i); });",
+                  "pm.test('AuthUser completo', () => ['id','name','email','role','shift','initials','hospital','phone','joinedAt'].forEach((c) => pm.expect(j.user, c).to.have.property(c)));",
+                  "pm.test('Define cookie de sessão HttpOnly', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.match(/HttpOnly/i));",
+                  "pm.collectionVariables.set('techToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /auth/me com Bearer → usuário da sessão",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('É a enfermeira', () => pm.expect(pm.response.json().email).to.eql('ana.silva@hospitalcentral.br'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /auth/me só com cookie (credentials: include) → 200",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Sessão restaurada pelo cookie (último login)', () => pm.expect(pm.response.json()).to.have.property('email'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 · Painel e cirurgias (RF04, RF05)",
+      "item": [
+        {
+          "name": "GET /dashboard → DashboardSummary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Contadores numéricos', () => ['totalSurgeries','readyKits','criticalStockItems','lowStockItems','stockItemCount'].forEach((c) => pm.expect(j[c], c).to.be.a('number')));",
+                  "pm.test('Programação do dia', () => { pm.expect(j.schedule).to.be.an('array').that.is.not.empty; j.schedule.forEach((s) => { ['id','surgeryId','time','surgery','room','surgeon'].forEach((c) => pm.expect(s).to.have.property(c)); pm.expect(['em-andamento','aguardando','concluida']).to.include(s.status); }); });",
+                  "pm.test('Tendência opcional bem formada', () => { if (j.surgeryTrend) { pm.expect(j.surgeryTrend.text).to.be.a('string'); pm.expect(j.surgeryTrend.positive).to.be.a('boolean'); } });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /surgeries → SurgeryType[]",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/surgeries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "surgeries"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Lista com campos do contrato', () => { pm.expect(j).to.be.an('array').that.is.not.empty; j.forEach((s) => ['id','name','specialty','duration','color','bgColor','scheduledToday','room','time'].forEach((c) => pm.expect(s, c).to.have.property(c))); });",
+                  "pm.test('IDs são strings', () => j.forEach((s) => pm.expect(s.id).to.be.a('string')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /surgeries/apendicite/kit → EquipmentItem[]",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/surgeries/apendicite/kit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "surgeries",
+                "apendicite",
+                "kit"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Kit com 6 itens', () => pm.expect(j).to.have.lengthOf(6));",
+                  "pm.test('Itens do contrato', () => j.forEach((i) => { ['id','name','quantity','unit','category','critical'].forEach((c) => pm.expect(i, c).to.have.property(c)); pm.expect(['EPI','Instrumental','Descartável','Anestesia','Implante']).to.include(i.category); pm.expect(i.critical).to.be.a('boolean'); }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /surgeries/inexistente/kit → 404",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/surgeries/inexistente/kit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "surgeries",
+                "inexistente",
+                "kit"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 · Estoque (RF02, RN02, RN05)",
+      "item": [
+        {
+          "name": "GET /stock (enfermeira pode consultar)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('StockItem[]', () => { pm.expect(j).to.be.an('array').that.is.not.empty; j.forEach((i) => { ['id','name','available','minimum','unit','category','status','lastUpdated','updatedBy'].forEach((c) => pm.expect(i, c).to.have.property(c)); pm.expect(['ok','low','critical']).to.include(i.status); }); });",
+                  "pm.test('Status coerente com os limites', () => j.forEach((i) => pm.expect(i.status).to.eql(i.available < i.minimum * 0.5 ? 'critical' : i.available < i.minimum ? 'low' : 'ok')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock como enfermeira → 403 (RN02)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gaze\",\n  \"category\": \"Descartável\",\n  \"available\": 10,\n  \"minimum\": 5,\n  \"unit\": \"unid\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock como técnico → 403 (RN05)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{techToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gaze\",\n  \"category\": \"Descartável\",\n  \"available\": 10,\n  \"minimum\": 5,\n  \"unit\": \"unid\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock quantidade negativa → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gaze\",\n  \"category\": \"Descartável\",\n  \"available\": -1,\n  \"minimum\": 5,\n  \"unit\": \"unid\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock sem nome → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"  \",\n  \"category\": \"Descartável\",\n  \"available\": 1,\n  \"minimum\": 5,\n  \"unit\": \"unid\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock cria item crítico → 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gaze Estéril (Newman)\",\n  \"category\": \"Descartável\",\n  \"available\": 2,\n  \"minimum\": 10,\n  \"unit\": \"unid\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test('Item persistido com id string', () => { pm.expect(j.id).to.be.a('string').and.not.empty; pm.expect(j.name).to.eql('Gaze Estéril (Newman)'); });",
+                  "pm.test('2 < 50% de 10 → critical', () => pm.expect(j.status).to.eql('critical'));",
+                  "pm.test('Auditoria: updatedBy = administrador', () => pm.expect(j.updatedBy).to.eql('Carlos Mendes'));",
+                  "pm.collectionVariables.set('estoqueId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /stock/{id} atualiza e recalcula status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/{{estoqueId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "{{estoqueId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gaze Estéril (Newman)\",\n  \"category\": \"Descartável\",\n  \"available\": 40,\n  \"minimum\": 10,\n  \"unit\": \"unid\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Atualizado', () => { pm.expect(j.available).to.eql(40); pm.expect(j.status).to.eql('ok'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /stock/inexistente → 404",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/inexistente",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "inexistente"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"X\",\n  \"category\": \"EPI\",\n  \"available\": 1,\n  \"minimum\": 1,\n  \"unit\": \"unid\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock/{id}/adjustments +5",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/{{estoqueId}}/adjustments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "{{estoqueId}}",
+                "adjustments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delta\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('40 + 5 = 45', () => pm.expect(pm.response.json().available).to.eql(45));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock/{id}/adjustments delta 0 → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/{{estoqueId}}/adjustments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "{{estoqueId}}",
+                "adjustments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delta\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock/{id}/adjustments não-numérico → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/{{estoqueId}}/adjustments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "{{estoqueId}}",
+                "adjustments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delta\": \"cinco\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock/{id}/adjustments nunca fica negativo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/{{estoqueId}}/adjustments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "{{estoqueId}}",
+                "adjustments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delta\": -9999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Piso em zero e critical', () => { const j = pm.response.json(); pm.expect(j.available).to.eql(0); pm.expect(j.status).to.eql('critical'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /stock/{id}/adjustments como técnico → 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{techToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/{{estoqueId}}/adjustments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "{{estoqueId}}",
+                "adjustments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delta\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /stock/{id} como técnico → 403",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{techToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/{{estoqueId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "{{estoqueId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /stock/{id} como administrador → 204",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/{{estoqueId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "{{estoqueId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));",
+                  "pm.test('Sem corpo', () => pm.expect(pm.response.text()).to.eql(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /stock/{id} repetido → 404",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/{{estoqueId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock",
+                "{{estoqueId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /stock não lista o item excluído",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stock"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Item removido', () => pm.expect(pm.response.json().map((i) => i.id)).to.not.include(pm.collectionVariables.get('estoqueId')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 · Relatórios e auditoria (RF07–RF10, RN01, RN04)",
+      "item": [
+        {
+          "name": "GET /reports → ChecklistReport[]",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('Relatórios do contrato', () => { pm.expect(j).to.be.an('array').that.is.not.empty; j.forEach((r) => { ['id','surgeryId','surgeryName','specialty','operator','operatorRole','date','time','duration','confirmed','missing','total','status','items'].forEach((c) => pm.expect(r, c).to.have.property(c)); pm.expect(['ok','divergencia']).to.include(r.status); pm.expect(r.confirmed + r.missing).to.eql(r.total); }); });",
+                  "pm.test('Datas dd/MM/yyyy e horários HH:mm:ss dos itens', () => pm.response.json().forEach((r) => { pm.expect(r.date).to.match(/^\\d{2}\\/\\d{2}\\/\\d{4}$/); r.items.filter((i) => i.confirmedAt).forEach((i) => pm.expect(i.confirmedAt).to.match(/^\\d{2}:\\d{2}:\\d{2}$/)); }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /reports com divergência → 201 (RN04)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surgeryId\": \"apendicite\",\n  \"surgeryName\": \"Apendicectomia\",\n  \"specialty\": \"Cirurgia Geral\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"10:00\",\n  \"duration\": \"2min 10s\",\n  \"confirmed\": 1,\n  \"missing\": 1,\n  \"total\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"luvas-ap\",\n      \"name\": \"Luvas Estéreis (7.0)\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"10:00:00\"\n    },\n    {\n      \"id\": \"bisturi-ap\",\n      \"name\": \"Bisturi nº 22\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"missing\",\n      \"confirmedAt\": \"10:00:00\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test('Recebe id e preserva o conteúdo', () => { pm.expect(j.id).to.be.a('string').and.not.empty; pm.expect(j.status).to.eql('divergencia'); pm.expect(j.missing).to.eql(1); pm.expect(j.items).to.have.lengthOf(2); });",
+                  "pm.collectionVariables.set('relatorioId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /reports com item pendente → 409 (RN01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surgeryId\": \"apendicite\",\n  \"surgeryName\": \"Apendicectomia\",\n  \"specialty\": \"Cirurgia Geral\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"10:00\",\n  \"duration\": \"2min 10s\",\n  \"confirmed\": 1,\n  \"missing\": 0,\n  \"total\": 2,\n  \"status\": \"ok\",\n  \"items\": [\n    {\n      \"id\": \"a\",\n      \"name\": \"Item A\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"10:00:00\"\n    },\n    {\n      \"id\": \"b\",\n      \"name\": \"Item B\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"pending\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /reports com totais inconsistentes → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surgeryId\": \"apendicite\",\n  \"surgeryName\": \"Apendicectomia\",\n  \"specialty\": \"Cirurgia Geral\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"10:00\",\n  \"duration\": \"2min 10s\",\n  \"confirmed\": 2,\n  \"missing\": 1,\n  \"total\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"luvas-ap\",\n      \"name\": \"Luvas Estéreis (7.0)\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"10:00:00\"\n    },\n    {\n      \"id\": \"bisturi-ap\",\n      \"name\": \"Bisturi nº 22\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"missing\",\n      \"confirmedAt\": \"10:00:00\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /reports com status que esconde divergência → 400 (RNF06)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surgeryId\": \"apendicite\",\n  \"surgeryName\": \"Apendicectomia\",\n  \"specialty\": \"Cirurgia Geral\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"10:00\",\n  \"duration\": \"2min 10s\",\n  \"confirmed\": 1,\n  \"missing\": 1,\n  \"total\": 2,\n  \"status\": \"ok\",\n  \"items\": [\n    {\n      \"id\": \"luvas-ap\",\n      \"name\": \"Luvas Estéreis (7.0)\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"10:00:00\"\n    },\n    {\n      \"id\": \"bisturi-ap\",\n      \"name\": \"Bisturi nº 22\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"missing\",\n      \"confirmedAt\": \"10:00:00\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /reports enviando id → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surgeryId\": \"apendicite\",\n  \"surgeryName\": \"Apendicectomia\",\n  \"specialty\": \"Cirurgia Geral\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"10:00\",\n  \"duration\": \"2min 10s\",\n  \"confirmed\": 1,\n  \"missing\": 1,\n  \"total\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"luvas-ap\",\n      \"name\": \"Luvas Estéreis (7.0)\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"10:00:00\"\n    },\n    {\n      \"id\": \"bisturi-ap\",\n      \"name\": \"Bisturi nº 22\",\n      \"quantity\": 1,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"missing\",\n      \"confirmedAt\": \"10:00:00\"\n    }\n  ],\n  \"id\": \"r1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /reports sem itens → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surgeryId\": \"apendicite\",\n  \"surgeryName\": \"Apendicectomia\",\n  \"specialty\": \"Cirurgia Geral\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"10:00\",\n  \"duration\": \"2min 10s\",\n  \"confirmed\": 0,\n  \"missing\": 0,\n  \"total\": 0,\n  \"status\": \"ok\",\n  \"items\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /reports inclui o relatório criado (RF08)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Histórico mantido', () => pm.expect(pm.response.json().map((r) => r.id)).to.include(pm.collectionVariables.get('relatorioId')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 · Usuários (RF01, RN02, RN05)",
+      "item": [
+        {
+          "name": "GET /users como enfermeira → 403",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /users como administrador → AppUser[]",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('AppUser[] sem segredos', () => { pm.expect(j).to.be.an('array').that.is.not.empty; j.forEach((u) => { ['id','name','email','role','shift','status','lastActive','initials'].forEach((c) => pm.expect(u, c).to.have.property(c)); pm.expect(u).to.not.have.property('password'); pm.expect(['active','inactive']).to.include(u.status); }); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users como técnico → 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{techToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Usuária Newman\",\n  \"email\": \"{{emailNovo}}\",\n  \"role\": \"nurse\",\n  \"shift\": \"Turno C\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users e-mail inválido → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Usuária Newman\",\n  \"email\": \"sem-arroba\",\n  \"role\": \"nurse\",\n  \"shift\": \"Turno C\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users perfil inválido → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Usuária Newman\",\n  \"email\": \"{{emailNovo}}\",\n  \"role\": \"root\",\n  \"shift\": \"Turno C\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users cria usuário ativo → 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Usuária Newman\",\n  \"email\": \"{{emailNovo}}\",\n  \"role\": \"nurse\",\n  \"shift\": \"Turno C\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test('Ativo, com iniciais, sem senha', () => { pm.expect(j.status).to.eql('active'); pm.expect(j.initials).to.eql('UN'); pm.expect(j).to.not.have.property('password'); });",
+                  "pm.collectionVariables.set('usuarioId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users e-mail duplicado → 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Usuária Newman\",\n  \"email\": \"{{emailNovo}}\",\n  \"role\": \"nurse\",\n  \"shift\": \"Turno C\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /users/{id} atualiza dados",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{usuarioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{usuarioId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Usuária Atualizada\",\n  \"email\": \"{{emailNovo}}\",\n  \"role\": \"technician\",\n  \"shift\": \"Turno C\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Atualizado', () => { const j = pm.response.json(); pm.expect(j.name).to.eql('Usuária Atualizada'); pm.expect(j.role).to.eql('technician'); pm.expect(j.status).to.eql('active'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /users/inexistente → 404",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/inexistente",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "inexistente"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Usuária Newman\",\n  \"email\": \"{{emailNovo}}\",\n  \"role\": \"nurse\",\n  \"shift\": \"Turno C\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/{id}/status → inactive",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{usuarioId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{usuarioId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Inativado', () => pm.expect(pm.response.json().status).to.eql('inactive'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/{id}/status → active",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{usuarioId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{usuarioId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Reativado', () => pm.expect(pm.response.json().status).to.eql('active'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/{id}/status inválido → 400",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{usuarioId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{usuarioId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"banido\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/{id}/status como enfermeira → 403",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{usuarioId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{usuarioId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/inexistente/status → 404",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/inexistente/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "inexistente",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 · Perfil e senha (RNF01)",
+      "item": [
+        {
+          "name": "GET /profile → AuthUser",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Perfil da enfermeira, sem senha', () => { const j = pm.response.json(); pm.expect(j.email).to.eql('ana.silva@hospitalcentral.br'); pm.expect(j).to.not.have.property('password'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /profile atualiza nome e telefone",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana Maria Silva\",\n  \"phone\": \"(11) 90000-1111\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Atualizado', () => { const j = pm.response.json(); pm.expect(j.name).to.eql('Ana Maria Silva'); pm.expect(j.phone).to.eql('(11) 90000-1111'); pm.expect(j.initials).to.eql('AM'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /profile nome vazio → 400",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"phone\": \"(11) 90000-1111\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /profile restaura o nome original",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana Silva\",\n  \"phone\": \"(11) 99874-3210\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /profile/notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile",
+                "notifications"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('4 preferências booleanas', () => { const j = pm.response.json(); ['stockAlert','surgeryReminder','voiceChecklist','weeklyReport'].forEach((c) => pm.expect(j[c], c).to.be.a('boolean')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /profile/notifications persiste",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile",
+                "notifications"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stockAlert\": false,\n  \"surgeryReminder\": true,\n  \"voiceChecklist\": true,\n  \"weeklyReport\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Devolve o persistido', () => pm.expect(pm.response.json()).to.eql({\"stockAlert\":false,\"surgeryReminder\":true,\"voiceChecklist\":true,\"weeklyReport\":false}));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /profile/notifications inválido → 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile",
+                "notifications"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stockAlert\": \"sim\",\n  \"surgeryReminder\": true,\n  \"voiceChecklist\": true,\n  \"weeklyReport\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /profile/password senha atual errada → 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"errada\",\n  \"newPassword\": \"NovaSenha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /profile/password nova senha curta → 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"senha123\",\n  \"newPassword\": \"curta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /profile/password → 204",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"senha123\",\n  \"newPassword\": \"NovaSenha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));",
+                  "pm.test('Sem corpo', () => pm.expect(pm.response.text()).to.eql(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login com a senha antiga falha → 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.silva@hospitalcentral.br\",\n  \"password\": \"senha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login com a nova senha funciona → 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.silva@hospitalcentral.br\",\n  \"password\": \"NovaSenha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Token emitido', () => pm.expect(pm.response.json().accessToken).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /profile/password restaura a senha original (repetível)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nurseToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profile",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"NovaSenha123\",\n  \"newPassword\": \"senha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 · Encerramento da sessão",
+      "item": [
+        {
+          "name": "POST /auth/logout → 204",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token encerrado não é mais aceito → 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/logout sem sessão → 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "const erro = pm.response.json();",
+                  "pm.test('Erro no formato { message }', () => pm.expect(erro).to.have.property('message').that.is.a('string').and.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

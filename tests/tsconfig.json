@@ -1,0 +1,14 @@
+{
+  "extends": "../src/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../src/frontend/*"],
+      "*": ["../src/node_modules/@types/*", "../src/node_modules/*"]
+    },
+    "typeRoots": ["../src/node_modules/@types"],
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "./**/*.tsx", "../src/frontend/vite-env.d.ts", "../src/vitest.config.ts", "../src/playwright.config.ts"],
+  "exclude": ["./api/results", "./e2e/results", "./**/node_modules"]
+}
