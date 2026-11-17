@@ -4,7 +4,7 @@ Esta pasta é a raiz da aplicação frontend. O TrayCheck usa React, TypeScript,
 
 ## Requisitos
 
-- Node.js 22.12 ou superior.
+- Node.js 22.22.2 ou superior (ou 24.15+ / 26+).
 - Corepack para executar a versão de pnpm fixada em `package.json` (`pnpm@10.34.3`).
 - Navegador moderno. A entrada por voz depende do suporte à Web Speech API.
 

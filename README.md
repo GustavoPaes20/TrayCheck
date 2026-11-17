@@ -4,7 +4,7 @@ O TrayCheck é um frontend React para conferência de kits cirúrgicos, controle
 
 ## Requisitos
 
-- Node.js 22.12 ou superior (Node.js 24 também é compatível).
+- Node.js 22.22.2 ou superior (24.15+ e 26+ também são compatíveis).
 - Corepack, incluído nas distribuições oficiais do Node.js, para disponibilizar a versão de pnpm fixada pelo projeto.
 - Navegador moderno. A conferência por voz depende do suporte à Web Speech API.
 
