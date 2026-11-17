@@ -20,7 +20,7 @@ async function lerDaApi<T>(page: Page, caminho: string): Promise<T> {
   return resposta.json() as Promise<T>;
 }
 
-test.describe('Autenticação contra a API (RF01)', () => {
+test.describe('Autenticação contra a API (RF02)', () => {
   test('exibe a mensagem de erro devolvida pelo servidor para senha incorreta', async ({ page }) => {
     await entrar(page, { email: CONTAS.enfermeira.email, senha: 'errada' });
 
@@ -59,7 +59,7 @@ test.describe('Autenticação contra a API (RF01)', () => {
   });
 });
 
-test.describe('Conferência persistida na API (RF07, RF08, RF09, RN01, RN04)', () => {
+test.describe('Conferência persistida na API (RF07, RF08, RF10, RN01, RN04)', () => {
   test('uma conferência com item pulado é salva como divergência e aparece nos Relatórios', async ({ page }) => {
     await instalarVozFalsa(page);
     await entrar(page, CONTAS.enfermeira);
@@ -103,7 +103,7 @@ test.describe('Conferência persistida na API (RF07, RF08, RF09, RN01, RN04)', (
   });
 });
 
-test.describe('Administração persistida na API (RF02, RN02)', () => {
+test.describe('Administração persistida na API (RF01, RN02)', () => {
   test('o administrador cadastra um item de estoque; ele é gravado no servidor e sobrevive ao recarregamento', async ({ page }) => {
     await entrar(page, CONTAS.administrador);
     await irPara(page, 'Gerenciar Estoque');
@@ -120,7 +120,7 @@ test.describe('Administração persistida na API (RF02, RN02)', () => {
     await expect(page.getByText('Gaze Estéril E2E').locator('visible=true').first()).toBeVisible();
   });
 
-  test('desativar um usuário na interface impede o login dele (RF01)', async ({ page }) => {
+  test('desativar um usuário na interface impede o login dele (RF02, RF12)', async ({ page }) => {
     await entrar(page, CONTAS.administrador);
     await irPara(page, 'Gerenciar Usuários');
     const cartao = page.getByText('Rafael Lima').locator('visible=true').first().locator('xpath=ancestor::div[.//button[normalize-space()="Desativar"]][1]');

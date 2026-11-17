@@ -21,7 +21,9 @@ API_BASE_URL=http://localhost:3000/api/v1 corepack pnpm@10.34.3 --dir src test:a
 
 A coleção é repetível contra APIs persistentes (usa um e-mail único por execução e restaura a senha que altera).
 
-**Relação com `docs/api/openapi.yaml` e `docs/api/postman_collection.json`.** Estes são o contrato e a coleção do backend real e cobrem muito mais rotas (checagens, checklists, kits...). A coleção de `tests/api/` é outra: verifica só as 22 rotas que o frontend usa hoje, do jeito que ele as usa (`src/docs/frontend-api-contract.md`), e roda no CI sem banco. Os códigos de status foram alinhados ao OpenAPI (login de inativo `401`, senha atual incorreta `400`, RN01 `409`). **Divergência conhecida:** `POST /reports` é rota de compatibilidade (obsoleta no OpenAPI, onde recebe um `checkId`); aqui ela segue o que o frontend envia hoje (relatório completo, `201`). Quando o frontend migrar para `POST /checks/{id}/finalize`, esta parte da coleção deve ser atualizada.
+**Relação com `docs/api/openapi.yaml` e `docs/api/postman_collection.json`.** Estes são o contrato e a coleção do backend real e cobrem muito mais rotas (checagens, checklists, kits...). A coleção de `tests/api/` é outra: verifica só as 22 rotas que o frontend usa hoje, do jeito que ele as usa (`src/docs/frontend-api-contract.md`), e roda no CI sem banco. Os códigos de status foram alinhados ao OpenAPI (login de inativo `401`, senha atual incorreta `400`, RN01 `409`). **Divergência conhecida:** `POST /reports` é rota de compatibilidade (obsoleta no OpenAPI, onde recebe um `checkId`); aqui ela segue o que o frontend envia hoje (relatório completo, `201`). Quando o frontend migrar para `POST /checks/{id}/finalize`, esta parte da coleção deve ser atualizada. Desde o contrato v1.1.0, o item do relatório usa `divergent` no lugar de `missing` e não tem mais `pending`; o frontend e o servidor de referência ainda usam os valores antigos.
+
+**Papéis das duas coleções.** A coleção oficial do passo 9 (IC-17) é `docs/api/postman_collection.json`, gerada do `openapi.yaml` e com o fluxo completo (55 requisições). A de `tests/api/` é o teste de regressão do CI para as rotas que o frontend usa hoje. As duas existem de propósito e não são cópias uma da outra.
 
 **Premissas** do servidor de referência, a confirmar com quem implementar o backend: somente `admin` altera estoque (`POST/PUT/DELETE /stock`, ajustes) e gerencia usuários; qualquer perfil autenticado lê estoque, cirurgias e relatórios e cria relatórios; senha nova tem no mínimo 8 caracteres; relatório com item `pending` é recusado com `409` (RN01).
 
@@ -37,18 +39,20 @@ Os testes abaixo estão marcados como falha esperada (`it.fails` no Vitest, `tes
 | --- | --- | --- |
 | "Finalizar" encerra a conferência mesmo com itens pendentes | `VoiceChecklist.tsx` (`finalizarConferencia`) | RN01 |
 | Só por toque a conferência nunca inicia/conclui (depende de ativar microfone ou modo demo) | `VoiceChecklist.tsx` | RNF02 |
-| Editar um usuário inativo (modo demo) o reativa: o formulário grava `status: 'active'` fixo | `UserManager.tsx` (`enviarFormulario`) | RF01 |
+| Editar um usuário inativo (modo demo) o reativa: o formulário grava `status: 'active'` fixo | `UserManager.tsx` (`enviarFormulario`) | RF12 |
 
 Observação de comportamento (não é falha de teste): o reconhecimento ignora palavras com 3 letras ou menos; dizer só "CO2" não confirma o item "CO2 Medicinal" (é preciso dizer "medicinal").
 
 ## Rastreabilidade (resumo)
 
+Os requisitos seguem a numeração da ERS v2.3 (RF01 a RF12). A equivalência com a numeração antiga está em `db/README.md`.
+
 | Requisito | Cobertura |
 | --- | --- |
-| RF01, RN05 (login e perfis) | unit `login`, integração demo/conectado, Newman 00/02/06, E2E autenticação e permissões |
-| RF02, RN02 (cadastro/estoque, só admin) | unit `stock-manager`, integração conectado, Newman 04, E2E estoque |
-| RF05–RF07, RNF07 (conferência, confirmar/pular/finalizar, retorno sonoro) | unit `voice-checklist`, integração, E2E conferência por voz (mock) |
-| RF08–RF10, RN01, RN04, RNF06 (histórico, divergências, relatórios) | unit `reports`, integração conectado, Newman 05, E2E conectado (persistência) |
+| RF02, RN05 (login e perfis) | unit `login`, integração demo/conectado, Newman 00/02/06, E2E autenticação e permissões |
+| RF01, RN02 (cadastro/estoque, só admin) | unit `stock-manager`, integração conectado, Newman 04, E2E estoque |
+| RF05, RF06, RF08, RNF07 (conferência, confirmar/pular/finalizar, retorno sonoro) | unit `voice-checklist`, integração, E2E conferência por voz (mock) |
+| RF07, RF09, RF10, RN01, RN04, RNF06 (histórico, divergências, relatórios) | unit `reports`, integração conectado, Newman 05, E2E conectado (persistência) |
 | RNF01 (LGPD: proteção de credenciais) | unit `api-client` (token não vai ao armazenamento local), Newman 02/07 (nunca devolve senha/hash; troca de senha) |
 | RNF02 (fallback por toque) | E2E móvel; defeito documentado acima |
 | RNF03 (taxa de voz ≥ 80%) | **manual** |

@@ -23,7 +23,7 @@
   ],
   "item": [
     {
-      "name": "00 · Sem sessão (RF01)",
+      "name": "00 · Sem sessão (RF02)",
       "item": [
         {
           "name": "GET /auth/me sem credenciais → 401",
@@ -208,7 +208,7 @@
       ]
     },
     {
-      "name": "02 · Autenticação (RF01)",
+      "name": "02 · Autenticação (RF02)",
       "item": [
         {
           "name": "POST /auth/login senha errada → 401",
@@ -726,7 +726,7 @@
       ]
     },
     {
-      "name": "04 · Estoque (RF02, RN02, RN05)",
+      "name": "04 · Estoque (RF01, RN02, RN05)",
       "item": [
         {
           "name": "GET /stock (enfermeira pode consultar)",
@@ -1801,7 +1801,7 @@
           ]
         },
         {
-          "name": "GET /reports inclui o relatório criado (RF08)",
+          "name": "GET /reports inclui o relatório criado (RF10)",
           "request": {
             "method": "GET",
             "header": [
@@ -1836,7 +1836,7 @@
       ]
     },
     {
-      "name": "06 · Usuários (RF01, RN02, RN05)",
+      "name": "06 · Usuários (RF12, RN02, RN05)",
       "item": [
         {
           "name": "GET /users como enfermeira → 403",
