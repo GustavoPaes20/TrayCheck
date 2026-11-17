@@ -7,7 +7,7 @@
  * com `API_BASE_URL` (ver scripts/run-newman.mjs).
  *
  * Regras que a coleção verifica (códigos de status alinhados a docs/api/openapi.yaml; a matriz exata de permissões é premissa documentada em tests/README.md):
- *  - RF01/RN05: sem sessão -> 401; perfil sem permissão -> 403.
+ *  - RF02/RN05: sem sessão -> 401; perfil sem permissão -> 403.
  *  - RN02: somente administrador altera cadastro de estoque e gerencia usuários.
  *  - RN01: relatório com itens pendentes é recusado (409, como em docs/api/openapi.yaml).
  *  - Erros no formato { "message": "..." }.

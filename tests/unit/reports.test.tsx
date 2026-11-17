@@ -19,7 +19,7 @@ function indicador(rotulo: string) {
   return screen.getByText(rotulo).previousElementSibling as HTMLElement;
 }
 
-describe('Reports — histórico de conferências (RF08, RF10)', () => {
+describe('Reports — histórico de conferências (RF09, RF10)', () => {
   it('lista todas as sessões registradas e resume os totais', () => {
     renderizar();
 

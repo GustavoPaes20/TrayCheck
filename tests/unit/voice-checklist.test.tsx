@@ -85,7 +85,7 @@ describe('VoiceChecklist — conferência por voz', () => {
       expect(screen.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeInTheDocument();
     });
 
-    it('marcar como faltante sinaliza a divergência no item e no painel de itens em falta (RF09)', async () => {
+    it('marcar como faltante sinaliza a divergência no item e no painel de itens em falta (RF07)', async () => {
       const { user } = renderizar();
 
       await user.click(screen.getAllByTitle('Faltando')[0]);
@@ -327,7 +327,7 @@ describe('VoiceChecklist — conferência por voz', () => {
     });
   });
 
-  describe('conclusão e divergências (RF07, RF09, RN04)', () => {
+  describe('conclusão e divergências (RF07, RF08, RN04)', () => {
     async function conferirTudoExcetoUmFaltante() {
       const contexto = renderizar();
       await ativarMicrofone(contexto.user);

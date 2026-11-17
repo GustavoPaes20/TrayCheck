@@ -3,7 +3,7 @@ import { CONTAS, abrirConferencia, contador, entrar, falar, falasDoApp, instalar
 
 /** Fluxos de ponta a ponta no modo de demonstração (sem backend). Mapeados ao plano de QA e aos RF/RN do documento de requisitos. */
 
-test.describe('Autenticação e perfis (RF01, RN05)', () => {
+test.describe('Autenticação e perfis (RF02, RN05)', () => {
   test('mostra o login e recusa credenciais inválidas', async ({ page }) => {
     await entrar(page, { email: CONTAS.enfermeira.email, senha: 'senha-errada' });
 
@@ -34,7 +34,7 @@ test.describe('Autenticação e perfis (RF01, RN05)', () => {
   });
 });
 
-test.describe('Conferência por voz de um kit (RF05–RF07, RNF07)', () => {
+test.describe('Conferência por voz de um kit (RF05, RF06, RF08, RNF07)', () => {
   test.beforeEach(async ({ page }) => {
     await instalarVozFalsa(page);
     await entrar(page, CONTAS.enfermeira);
@@ -63,7 +63,7 @@ test.describe('Conferência por voz de um kit (RF05–RF07, RNF07)', () => {
     await expect(contador(page, 'Falta')).toHaveText('1');
     await expect(contador(page, 'Pend.')).toHaveText('3');
 
-    // Trata os itens restantes por toque: a conferência conclui sozinha com divergência (RF07, RN04).
+    // Trata os itens restantes por toque: a conferência conclui sozinha com divergência (RF08, RN04).
     for (let restante = 3; restante > 0; restante--) {
       await page.getByTitle('Confirmar').first().click();
     }
@@ -122,7 +122,7 @@ test.describe('Defeitos conhecidos (documentados, não corrigidos nesta mudança
   });
 });
 
-test.describe('Estoque e administração (RF02, RN02)', () => {
+test.describe('Estoque e administração (RF01, RN02)', () => {
   test('o técnico consulta o estoque, mas não vê ações de edição', async ({ page }) => {
     await entrar(page, CONTAS.tecnico);
 

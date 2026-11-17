@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "02ec8947-c0fc-5a23-b7f0-e5bd918b761c",
     "name": "TrayCheck API",
-    "description": "Coleção Postman do **TrayCheck** (IC-17), gerada a partir de `docs/api/openapi.yaml` (IC-16).\n\n**Como usar**\n1. Suba o backend e ajuste a variável `{{baseUrl}}` (padrão: `http://localhost:3000/api/v1`).\n2. Carregue o banco de demonstração (`db/seeds`): os logins padrão da coleção são os usuários dele.\n3. Execute a coleção na ordem (Runner do Postman ou `newman run postman_collection.json`). Cada pasta guarda os IDs criados nas variáveis da coleção, e os logins trocam o `accessToken`.\n\nOs testes conferem o código HTTP documentado no contrato. O fluxo cobre RF01 a RF10 e as regras RN01 a RN08 no que depende da API.",
+    "description": "Coleção Postman do **TrayCheck** (IC-17), gerada a partir de `docs/api/openapi.yaml` (IC-16).\n\n**Como usar**\n1. Suba o backend e ajuste a variável `{{baseUrl}}` (padrão: `http://localhost:3000/api/v1`).\n2. Carregue o banco de demonstração (`db/seeds`): os logins padrão da coleção são os usuários dele.\n3. Execute a coleção na ordem (Runner do Postman ou `newman run postman_collection.json`). Cada pasta guarda os IDs criados nas variáveis da coleção, e os logins trocam o `accessToken`.\n\nOs testes conferem o código HTTP documentado no contrato. O fluxo cobre RF01 a RF12 (numeração da ERS v2.3) e as regras RN01 a RN09 no que depende da API.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -116,7 +116,7 @@
   "item": [
     {
       "name": "1. Autenticação",
-      "description": "Login e sessão (RF01). Os logins gravam `accessToken` na coleção.",
+      "description": "Login e sessão (RF02). Os logins gravam `accessToken` na coleção.",
       "item": [
         {
           "name": "Login (Administrador)",
@@ -923,7 +923,7 @@
       ]
     },
     {
-      "name": "3. Instrumentais (RF02)",
+      "name": "3. Instrumentais (RF01)",
       "description": "Cadastro de instrumentais (Administrador e Enfermeiro).",
       "item": [
         {
@@ -1385,7 +1385,7 @@
       ]
     },
     {
-      "name": "4. Kits (RF02)",
+      "name": "4. Kits (RF01)",
       "description": "Cadastro de kits (Administrador e Enfermeiro).",
       "item": [
         {
@@ -3344,7 +3344,7 @@
       ]
     },
     {
-      "name": "8. Checagens (RF05 a RF09)",
+      "name": "8. Checagens (RF05 a RF08, RF11)",
       "description": "Fluxo da checagem com o Enfermeiro: iniciar, confirmar, divergência, finalizar e cancelar (RN01, RN03, RN04, RN07, RN08).",
       "item": [
         {
@@ -3505,7 +3505,7 @@
                 }
               }
             },
-            "description": "**POST /checks** — `startCheck`\n\n**Perfis permitidos:** Enfermeiro(a) Instrumentador(a) (UC05).\n\nCria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF05). Comando de voz equivalente: \"iniciar\"."
+            "description": "**POST /checks** — `startCheck`\n\n**Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC05).\n\nCria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF05). Comando de voz equivalente: \"iniciar\"."
           },
           "response": [
             {
@@ -3589,7 +3589,7 @@
           ]
         },
         {
-          "name": "Histórico de checagens (RF08)",
+          "name": "Histórico de checagens (RF10)",
           "event": [
             {
               "listen": "test",
@@ -3941,7 +3941,7 @@
           ]
         },
         {
-          "name": "Registra divergência manual (RF09)",
+          "name": "Registra divergência manual (RF07)",
           "event": [
             {
               "listen": "test",
@@ -4083,7 +4083,7 @@
           ]
         },
         {
-          "name": "Lista as divergências da checagem (RF09)",
+          "name": "Lista as divergências da checagem (RF07)",
           "event": [
             {
               "listen": "test",
@@ -4173,7 +4173,7 @@
           ]
         },
         {
-          "name": "Finaliza a checagem e gera o relatório (RF07, RF10)",
+          "name": "Finaliza a checagem e gera o relatório (RF08, RF09)",
           "event": [
             {
               "listen": "test",
@@ -4236,7 +4236,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"id\": \"r1\",\n  \"checkId\": \"42\",\n  \"checklistVersion\": \"1.0\",\n  \"surgeryId\": \"joelho\",\n  \"surgeryName\": \"Artroplastia de Joelho\",\n  \"specialty\": \"Ortopedia\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"07:42\",\n  \"duration\": \"6min 32s\",\n  \"confirmed\": 10,\n  \"skipped\": 1,\n  \"missing\": 1,\n  \"total\": 12,\n  \"divergences\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"12\",\n      \"name\": \"Pinça Kelly reta 14cm\",\n      \"quantity\": 4,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"07:45:12\"\n    }\n  ],\n  \"divergenceDetails\": [\n    {\n      \"id\": \"3\",\n      \"checkId\": \"42\",\n      \"checkItemId\": \"7\",\n      \"instrumentId\": \"12\",\n      \"description\": \"Pinça Kelly reta 14cm\",\n      \"type\": \"faltante\",\n      \"expectedQuantity\": 4,\n      \"foundQuantity\": 3,\n      \"notes\": \"texto\",\n      \"automatic\": true,\n      \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n      \"recordedBy\": \"Ana Silva\"\n    }\n  ]\n}"
+              "body": "{\n  \"id\": \"r1\",\n  \"checkId\": \"42\",\n  \"checklistVersion\": \"1.0\",\n  \"room\": \"Sala 3\",\n  \"surgeryId\": \"joelho\",\n  \"surgeryName\": \"Artroplastia de Joelho\",\n  \"specialty\": \"Ortopedia\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"07:42\",\n  \"duration\": \"6min 32s\",\n  \"confirmed\": 10,\n  \"skipped\": 1,\n  \"missing\": 1,\n  \"total\": 12,\n  \"divergences\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"12\",\n      \"name\": \"Pinça Kelly reta 14cm\",\n      \"quantity\": 4,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"07:45:12\"\n    }\n  ],\n  \"divergenceDetails\": [\n    {\n      \"id\": \"3\",\n      \"checkId\": \"42\",\n      \"checkItemId\": \"7\",\n      \"instrumentId\": \"12\",\n      \"description\": \"Pinça Kelly reta 14cm\",\n      \"type\": \"faltante\",\n      \"expectedQuantity\": 4,\n      \"foundQuantity\": 3,\n      \"notes\": \"texto\",\n      \"automatic\": true,\n      \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n      \"recordedBy\": \"Ana Silva\"\n    }\n  ]\n}"
             },
             {
               "name": "401 — Não autenticado ou sessão expirada.",
@@ -4364,7 +4364,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"id\": \"r1\",\n  \"checkId\": \"42\",\n  \"checklistVersion\": \"1.0\",\n  \"surgeryId\": \"joelho\",\n  \"surgeryName\": \"Artroplastia de Joelho\",\n  \"specialty\": \"Ortopedia\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"07:42\",\n  \"duration\": \"6min 32s\",\n  \"confirmed\": 10,\n  \"skipped\": 1,\n  \"missing\": 1,\n  \"total\": 12,\n  \"divergences\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"12\",\n      \"name\": \"Pinça Kelly reta 14cm\",\n      \"quantity\": 4,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"07:45:12\"\n    }\n  ],\n  \"divergenceDetails\": [\n    {\n      \"id\": \"3\",\n      \"checkId\": \"42\",\n      \"checkItemId\": \"7\",\n      \"instrumentId\": \"12\",\n      \"description\": \"Pinça Kelly reta 14cm\",\n      \"type\": \"faltante\",\n      \"expectedQuantity\": 4,\n      \"foundQuantity\": 3,\n      \"notes\": \"texto\",\n      \"automatic\": true,\n      \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n      \"recordedBy\": \"Ana Silva\"\n    }\n  ]\n}"
+              "body": "{\n  \"id\": \"r1\",\n  \"checkId\": \"42\",\n  \"checklistVersion\": \"1.0\",\n  \"room\": \"Sala 3\",\n  \"surgeryId\": \"joelho\",\n  \"surgeryName\": \"Artroplastia de Joelho\",\n  \"specialty\": \"Ortopedia\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"07:42\",\n  \"duration\": \"6min 32s\",\n  \"confirmed\": 10,\n  \"skipped\": 1,\n  \"missing\": 1,\n  \"total\": 12,\n  \"divergences\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"12\",\n      \"name\": \"Pinça Kelly reta 14cm\",\n      \"quantity\": 4,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"07:45:12\"\n    }\n  ],\n  \"divergenceDetails\": [\n    {\n      \"id\": \"3\",\n      \"checkId\": \"42\",\n      \"checkItemId\": \"7\",\n      \"instrumentId\": \"12\",\n      \"description\": \"Pinça Kelly reta 14cm\",\n      \"type\": \"faltante\",\n      \"expectedQuantity\": 4,\n      \"foundQuantity\": 3,\n      \"notes\": \"texto\",\n      \"automatic\": true,\n      \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n      \"recordedBy\": \"Ana Silva\"\n    }\n  ]\n}"
             },
             {
               "name": "401 — Não autenticado ou sessão expirada.",
@@ -4481,7 +4481,7 @@
                 }
               }
             },
-            "description": "**POST /checks** — `startCheck`\n\n**Perfis permitidos:** Enfermeiro(a) Instrumentador(a) (UC05).\n\nCria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF05). Comando de voz equivalente: \"iniciar\"."
+            "description": "**POST /checks** — `startCheck`\n\n**Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC05).\n\nCria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF05). Comando de voz equivalente: \"iniciar\"."
           },
           "response": [
             {
@@ -4565,7 +4565,7 @@
           ]
         },
         {
-          "name": "Cancela uma checagem em andamento",
+          "name": "Cancela uma checagem em andamento (RF11)",
           "event": [
             {
               "listen": "test",
@@ -4610,7 +4610,7 @@
                 }
               }
             },
-            "description": "**POST /checks/{id}/cancel** — `cancelCheck`\n\n**Perfis permitidos:** Enfermeiro(a) Instrumentador(a).\n\nA checagem cancelada permanece no histórico e não gera relatório."
+            "description": "**POST /checks/{id}/cancel** — `cancelCheck`\n\n**Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC11).\n\nO motivo é obrigatório e fica registrado (`checagem.observacao`). A checagem cancelada permanece no histórico, não gera relatório e não pode mais ser alterada (RN03, RN08)."
           },
           "response": [
             {
@@ -4709,7 +4709,7 @@
       ]
     },
     {
-      "name": "9. Relatórios (RF08, RF10)",
+      "name": "9. Relatórios (RF09, RF10)",
       "description": "Relatórios de conferência gerados ao finalizar a checagem.",
       "item": [
         {
@@ -4783,7 +4783,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "[\n  {\n    \"id\": \"r1\",\n    \"checkId\": \"42\",\n    \"checklistVersion\": \"1.0\",\n    \"surgeryId\": \"joelho\",\n    \"surgeryName\": \"Artroplastia de Joelho\",\n    \"specialty\": \"Ortopedia\",\n    \"operator\": \"Ana Silva\",\n    \"operatorRole\": \"nurse\",\n    \"date\": \"10/11/2026\",\n    \"time\": \"07:42\",\n    \"duration\": \"6min 32s\",\n    \"confirmed\": 10,\n    \"skipped\": 1,\n    \"missing\": 1,\n    \"total\": 12,\n    \"divergences\": 2,\n    \"status\": \"divergencia\",\n    \"items\": [\n      {\n        \"id\": \"12\",\n        \"name\": \"Pinça Kelly reta 14cm\",\n        \"quantity\": 4,\n        \"unit\": \"unid\",\n        \"category\": \"Instrumental\",\n        \"critical\": true,\n        \"status\": \"confirmed\",\n        \"confirmedAt\": \"07:45:12\"\n      }\n    ],\n    \"divergenceDetails\": [\n      {\n        \"id\": \"3\",\n        \"checkId\": \"42\",\n        \"checkItemId\": \"7\",\n        \"instrumentId\": \"12\",\n        \"description\": \"Pinça Kelly reta 14cm\",\n        \"type\": \"faltante\",\n        \"expectedQuantity\": 4,\n        \"foundQuantity\": 3,\n        \"notes\": \"texto\",\n        \"automatic\": true,\n        \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n        \"recordedBy\": \"Ana Silva\"\n      }\n    ]\n  }\n]"
+              "body": "[\n  {\n    \"id\": \"r1\",\n    \"checkId\": \"42\",\n    \"checklistVersion\": \"1.0\",\n    \"room\": \"Sala 3\",\n    \"surgeryId\": \"joelho\",\n    \"surgeryName\": \"Artroplastia de Joelho\",\n    \"specialty\": \"Ortopedia\",\n    \"operator\": \"Ana Silva\",\n    \"operatorRole\": \"nurse\",\n    \"date\": \"10/11/2026\",\n    \"time\": \"07:42\",\n    \"duration\": \"6min 32s\",\n    \"confirmed\": 10,\n    \"skipped\": 1,\n    \"missing\": 1,\n    \"total\": 12,\n    \"divergences\": 2,\n    \"status\": \"divergencia\",\n    \"items\": [\n      {\n        \"id\": \"12\",\n        \"name\": \"Pinça Kelly reta 14cm\",\n        \"quantity\": 4,\n        \"unit\": \"unid\",\n        \"category\": \"Instrumental\",\n        \"critical\": true,\n        \"status\": \"confirmed\",\n        \"confirmedAt\": \"07:45:12\"\n      }\n    ],\n    \"divergenceDetails\": [\n      {\n        \"id\": \"3\",\n        \"checkId\": \"42\",\n        \"checkItemId\": \"7\",\n        \"instrumentId\": \"12\",\n        \"description\": \"Pinça Kelly reta 14cm\",\n        \"type\": \"faltante\",\n        \"expectedQuantity\": 4,\n        \"foundQuantity\": 3,\n        \"notes\": \"texto\",\n        \"automatic\": true,\n        \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n        \"recordedBy\": \"Ana Silva\"\n      }\n    ]\n  }\n]"
             },
             {
               "name": "400 — Requisição inválida (campos ausentes, formato ou valores fora do permi",
@@ -4872,7 +4872,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"id\": \"r1\",\n  \"checkId\": \"42\",\n  \"checklistVersion\": \"1.0\",\n  \"surgeryId\": \"joelho\",\n  \"surgeryName\": \"Artroplastia de Joelho\",\n  \"specialty\": \"Ortopedia\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"07:42\",\n  \"duration\": \"6min 32s\",\n  \"confirmed\": 10,\n  \"skipped\": 1,\n  \"missing\": 1,\n  \"total\": 12,\n  \"divergences\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"12\",\n      \"name\": \"Pinça Kelly reta 14cm\",\n      \"quantity\": 4,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"07:45:12\"\n    }\n  ],\n  \"divergenceDetails\": [\n    {\n      \"id\": \"3\",\n      \"checkId\": \"42\",\n      \"checkItemId\": \"7\",\n      \"instrumentId\": \"12\",\n      \"description\": \"Pinça Kelly reta 14cm\",\n      \"type\": \"faltante\",\n      \"expectedQuantity\": 4,\n      \"foundQuantity\": 3,\n      \"notes\": \"texto\",\n      \"automatic\": true,\n      \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n      \"recordedBy\": \"Ana Silva\"\n    }\n  ]\n}"
+              "body": "{\n  \"id\": \"r1\",\n  \"checkId\": \"42\",\n  \"checklistVersion\": \"1.0\",\n  \"room\": \"Sala 3\",\n  \"surgeryId\": \"joelho\",\n  \"surgeryName\": \"Artroplastia de Joelho\",\n  \"specialty\": \"Ortopedia\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"07:42\",\n  \"duration\": \"6min 32s\",\n  \"confirmed\": 10,\n  \"skipped\": 1,\n  \"missing\": 1,\n  \"total\": 12,\n  \"divergences\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"12\",\n      \"name\": \"Pinça Kelly reta 14cm\",\n      \"quantity\": 4,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"07:45:12\"\n    }\n  ],\n  \"divergenceDetails\": [\n    {\n      \"id\": \"3\",\n      \"checkId\": \"42\",\n      \"checkItemId\": \"7\",\n      \"instrumentId\": \"12\",\n      \"description\": \"Pinça Kelly reta 14cm\",\n      \"type\": \"faltante\",\n      \"expectedQuantity\": 4,\n      \"foundQuantity\": 3,\n      \"notes\": \"texto\",\n      \"automatic\": true,\n      \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n      \"recordedBy\": \"Ana Silva\"\n    }\n  ]\n}"
             },
             {
               "name": "401 — Não autenticado ou sessão expirada.",
@@ -4973,7 +4973,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"id\": \"r1\",\n  \"checkId\": \"42\",\n  \"checklistVersion\": \"1.0\",\n  \"surgeryId\": \"joelho\",\n  \"surgeryName\": \"Artroplastia de Joelho\",\n  \"specialty\": \"Ortopedia\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"07:42\",\n  \"duration\": \"6min 32s\",\n  \"confirmed\": 10,\n  \"skipped\": 1,\n  \"missing\": 1,\n  \"total\": 12,\n  \"divergences\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"12\",\n      \"name\": \"Pinça Kelly reta 14cm\",\n      \"quantity\": 4,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"07:45:12\"\n    }\n  ],\n  \"divergenceDetails\": [\n    {\n      \"id\": \"3\",\n      \"checkId\": \"42\",\n      \"checkItemId\": \"7\",\n      \"instrumentId\": \"12\",\n      \"description\": \"Pinça Kelly reta 14cm\",\n      \"type\": \"faltante\",\n      \"expectedQuantity\": 4,\n      \"foundQuantity\": 3,\n      \"notes\": \"texto\",\n      \"automatic\": true,\n      \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n      \"recordedBy\": \"Ana Silva\"\n    }\n  ]\n}"
+              "body": "{\n  \"id\": \"r1\",\n  \"checkId\": \"42\",\n  \"checklistVersion\": \"1.0\",\n  \"room\": \"Sala 3\",\n  \"surgeryId\": \"joelho\",\n  \"surgeryName\": \"Artroplastia de Joelho\",\n  \"specialty\": \"Ortopedia\",\n  \"operator\": \"Ana Silva\",\n  \"operatorRole\": \"nurse\",\n  \"date\": \"10/11/2026\",\n  \"time\": \"07:42\",\n  \"duration\": \"6min 32s\",\n  \"confirmed\": 10,\n  \"skipped\": 1,\n  \"missing\": 1,\n  \"total\": 12,\n  \"divergences\": 2,\n  \"status\": \"divergencia\",\n  \"items\": [\n    {\n      \"id\": \"12\",\n      \"name\": \"Pinça Kelly reta 14cm\",\n      \"quantity\": 4,\n      \"unit\": \"unid\",\n      \"category\": \"Instrumental\",\n      \"critical\": true,\n      \"status\": \"confirmed\",\n      \"confirmedAt\": \"07:45:12\"\n    }\n  ],\n  \"divergenceDetails\": [\n    {\n      \"id\": \"3\",\n      \"checkId\": \"42\",\n      \"checkItemId\": \"7\",\n      \"instrumentId\": \"12\",\n      \"description\": \"Pinça Kelly reta 14cm\",\n      \"type\": \"faltante\",\n      \"expectedQuantity\": 4,\n      \"foundQuantity\": 3,\n      \"notes\": \"texto\",\n      \"automatic\": true,\n      \"recordedAt\": \"2026-11-11T08:00:00-04:00\",\n      \"recordedBy\": \"Ana Silva\"\n    }\n  ]\n}"
             },
             {
               "name": "400 — Requisição inválida (campos ausentes, formato ou valores fora do permi",

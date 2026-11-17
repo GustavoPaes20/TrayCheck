@@ -16,7 +16,7 @@ import type { UserRole } from '@/data/mockData';
 const todosOsPapeis: UserRole[] = ['admin', 'nurse', 'technician'];
 
 describe('dados de demonstração', () => {
-  describe('perfis de acesso (RF01)', () => {
+  describe('perfis de acesso (RF02)', () => {
     it('há uma conta de demonstração para cada perfil', () => {
       expect(CONTAS_DEMONSTRACAO.map((conta) => conta.role).sort()).toEqual([...todosOsPapeis].sort());
     });
@@ -48,7 +48,7 @@ describe('dados de demonstração', () => {
     });
   });
 
-  describe('cirurgias e kits (RF02–RF04)', () => {
+  describe('cirurgias e kits (RF01, RF03, RF04)', () => {
     it('IDs de cirurgia são únicos', () => {
       expect(new Set(cirurgiasCadastradas.map((c) => c.id)).size).toBe(cirurgiasCadastradas.length);
     });
@@ -97,7 +97,7 @@ describe('dados de demonstração', () => {
     });
   });
 
-  describe('histórico de conferências (RF08, RF09)', () => {
+  describe('histórico de conferências (RF07, RF10)', () => {
     it.each(historicoDeConferencias)('o relatório $id tem contagens coerentes com seus itens', (relatorio) => {
       const confirmados = relatorio.items.filter((i) => i.status === 'confirmed').length;
       const faltantes = relatorio.items.filter((i) => i.status === 'missing').length;

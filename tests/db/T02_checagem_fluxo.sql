@@ -1,4 +1,4 @@
--- RF05, RF06, RF07, RF08, RF09, RF10, RN01, RN03, RN04, RNF06
+-- RF05, RF06, RF07, RF08, RF09, RF11, RN01, RN03, RN04, RNF06
 -- Checklist 1 = Artroscopia de Joelho (12 itens). Usuário 1 = Ana (enfermeiro).
 SET @arquivo = 'T02_checagem_fluxo';
 
@@ -35,7 +35,7 @@ CALL assert_erro('RF06: método de confirmação inválido é rejeitado',
     CONCAT("UPDATE item_checagem SET status = 'confirmado', metodo_confirmacao = 'telepatia' WHERE id = ", @i3),
     'ck_item_checagem_metodo');
 
--- RN04 / RF09: divergências automáticas ------------------------------------------
+-- RN04 / RF07: divergências automáticas ------------------------------------------
 UPDATE item_checagem SET status = 'confirmado', quantidade_encontrada = 1, metodo_confirmacao = 'toque' WHERE id = @i2;
 CALL assert_igual('RN04: confirmar com quantidade menor vira divergente',
     (SELECT status FROM item_checagem WHERE id = @i2), 'divergente');
@@ -43,7 +43,7 @@ CALL assert_igual('RN04: divergência "faltante" criada automaticamente',
     (SELECT CONCAT(tipo, ':', quantidade_esperada, '->', quantidade_encontrada, ':', gerada_automaticamente) FROM divergencia WHERE item_checagem_id = @i2), 'faltante:2->1:1');
 
 UPDATE item_checagem SET status = 'divergente', quantidade_encontrada = 3 WHERE id = @i3;
-CALL assert_igual('RF09: quantidade maior gera divergência "excedente"',
+CALL assert_igual('RF07: quantidade maior gera divergência "excedente"',
     (SELECT tipo FROM divergencia WHERE item_checagem_id = @i3), 'excedente');
 UPDATE item_checagem SET status = 'pendente' WHERE id = @i3;
 CALL assert_igual('RN04: voltar para pendente remove a divergência automática',
@@ -53,9 +53,9 @@ CALL assert_igual('Voltar para pendente limpa quantidade e horário',
 
 INSERT INTO divergencia (checagem_id, descricao_item, tipo, quantidade_encontrada, observacao, registrada_por)
 VALUES (@c, 'Pinça Allis', 'excedente', 1, 'Item fora do checklist encontrado na bandeja', 1);
-CALL assert_igual('RF09: excedente fora do checklist é registrado',
+CALL assert_igual('RF07: excedente fora do checklist é registrado',
     (SELECT COUNT(*) FROM divergencia WHERE checagem_id = @c AND item_checagem_id IS NULL), '1');
-CALL assert_erro('RF09: divergência sem item identificado é rejeitada',
+CALL assert_erro('RF07: divergência sem item identificado é rejeitada',
     CONCAT("INSERT INTO divergencia (checagem_id, tipo) VALUES (", @c, ", 'outro')"),
     'ck_divergencia_alvo');
 
@@ -64,28 +64,28 @@ CALL assert_erro('RN01: não finaliza com itens pendentes',
     CONCAT("UPDATE checagem SET status = 'finalizada' WHERE id = ", @c),
     'RN01');
 
--- Trata o restante e finaliza (RF07)
+-- Trata o restante e finaliza (RF08)
 UPDATE item_checagem SET status = 'confirmado', metodo_confirmacao = 'voz', registrado_por = 1
  WHERE checagem_id = @c AND status = 'pendente';
-CALL assert_ok('RF07: finaliza quando todos os itens foram tratados',
+CALL assert_ok('RF08: finaliza quando todos os itens foram tratados',
     CONCAT("UPDATE checagem SET status = 'finalizada' WHERE id = ", @c));
-CALL assert_igual('RF07: horário de finalização preenchido automaticamente',
+CALL assert_igual('RF08: horário de finalização preenchido automaticamente',
     (SELECT finalizada_em IS NOT NULL FROM checagem WHERE id = @c), '1');
 
--- RF10 / RN04: relatório ---------------------------------------------------------
-CALL assert_igual('RF10: relatório gerado automaticamente ao finalizar',
+-- RF09 / RN04: relatório ---------------------------------------------------------
+CALL assert_igual('RF09: relatório gerado automaticamente ao finalizar',
     (SELECT COUNT(*) FROM relatorio_conferencia WHERE checagem_id = @c), '1');
-CALL assert_igual('RF10: contagens do relatório (total/confirmados/pulados/divergentes/divergências)',
+CALL assert_igual('RF09: contagens do relatório (total/confirmados/pulados/divergentes/divergências)',
     (SELECT CONCAT_WS('/', total_itens, confirmados, pulados, divergentes, divergencias) FROM relatorio_conferencia WHERE checagem_id = @c),
     '12/10/1/1/2');
 CALL assert_igual('RNF06: relatório sinaliza divergência',
     (SELECT status FROM relatorio_conferencia WHERE checagem_id = @c), 'divergencia');
 CALL assert_igual('RN04: divergências entram no relatório (JSON)',
     (SELECT JSON_LENGTH(conteudo, '$.divergencias') FROM relatorio_conferencia WHERE checagem_id = @c), '2');
-CALL assert_igual('RF10: relatório guarda o procedimento',
+CALL assert_igual('RF09: relatório guarda o procedimento',
     (SELECT JSON_UNQUOTE(JSON_EXTRACT(conteudo, '$.procedimento.nome')) FROM relatorio_conferencia WHERE checagem_id = @c),
     'Artroscopia de Joelho');
-CALL assert_igual('RF10: relatório guarda os 12 itens',
+CALL assert_igual('RF09: relatório guarda os 12 itens',
     (SELECT JSON_LENGTH(conteudo, '$.itens') FROM relatorio_conferencia WHERE checagem_id = @c), '12');
 
 -- RN03: imutabilidade ------------------------------------------------------------
@@ -115,18 +115,18 @@ INSERT INTO checagem (checklist_padrao_id, usuario_id) VALUES (4, 4);  -- Hérni
 SET @c2 = LAST_INSERT_ID();
 UPDATE item_checagem SET status = 'confirmado', metodo_confirmacao = 'voz', registrado_por = 4 WHERE checagem_id = @c2;
 UPDATE checagem SET status = 'finalizada' WHERE id = @c2;
-CALL assert_igual('RF10: checagem sem divergências gera relatório "ok"',
+CALL assert_igual('RF09: checagem sem divergências gera relatório "ok"',
     (SELECT status FROM relatorio_conferencia WHERE checagem_id = @c2), 'ok');
 
 -- Isolamento entre checagens ------------------------------------------------------
 INSERT INTO checagem (checklist_padrao_id, usuario_id) VALUES (5, 1);
 SET @c3 = LAST_INSERT_ID();
-CALL assert_erro('RF09: divergência não pode apontar item de outra checagem',
+CALL assert_erro('RF07: divergência não pode apontar item de outra checagem',
     CONCAT("INSERT INTO divergencia (checagem_id, item_checagem_id, tipo) VALUES (", @c3, ", ", @i1, ", 'faltante')"),
     'não pertence');
 CALL assert_ok('Checagem em andamento pode ser cancelada',
     CONCAT("UPDATE checagem SET status = 'cancelada' WHERE id = ", @c3));
 CALL assert_igual('Cancelar não gera relatório',
     (SELECT COUNT(*) FROM relatorio_conferencia WHERE checagem_id = @c3), '0');
-CALL assert_erro('RF08: checagem cancelada não pode ser alterada',
+CALL assert_erro('RF11: checagem cancelada não pode ser alterada',
     CONCAT("UPDATE item_checagem SET status = 'confirmado' WHERE checagem_id = ", @c3, " LIMIT 1"), 'RN03');

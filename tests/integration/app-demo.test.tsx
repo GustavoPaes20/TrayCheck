@@ -36,7 +36,7 @@ describe('App (modo demonstração) — fluxos completos', () => {
     instalarVozFalsa();
   });
 
-  describe('autenticação e sessão (RF01)', () => {
+  describe('autenticação e sessão (RF02)', () => {
     it('inicia na tela de login e não expõe o sistema sem autenticação', () => {
       renderizar();
 
@@ -162,7 +162,7 @@ describe('App (modo demonstração) — fluxos completos', () => {
     });
   });
 
-  describe('jornada da checagem: do dashboard ao relatório (RF05–RF07)', () => {
+  describe('jornada da checagem: do dashboard ao relatório (RF05, RF06, RF08)', () => {
     it('"Conferir" na programação do dia abre a conferência da cirurgia escolhida', async () => {
       const { user } = renderizar();
       await fazerLogin(user, 'nurse');

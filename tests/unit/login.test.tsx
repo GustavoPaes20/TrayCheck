@@ -16,7 +16,7 @@ async function entrar(user: ReturnType<typeof userEvent.setup>, email: string, s
   await user.click(screen.getByRole('button', { name: 'Entrar' }));
 }
 
-describe('Login (modo demonstração) — RF01', () => {
+describe('Login (modo demonstração) — RF02', () => {
   it('exibe o formulário de acesso com e-mail e senha', () => {
     renderizar();
 
