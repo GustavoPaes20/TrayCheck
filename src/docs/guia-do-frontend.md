@@ -18,7 +18,7 @@ O repositório contém a aplicação frontend React/TypeScript do TrayCheck; nã
 
 ## Executar localmente
 
-Requer Node.js 22.12 ou superior. A versão de pnpm está fixada no `package.json` e pode ser executada com Corepack.
+Requer Node.js 22.22.2 ou superior (ou 24.15+ / 26+). A versão de pnpm está fixada no `package.json` e pode ser executada com Corepack.
 
 Na raiz do repositório:
 

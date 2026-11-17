@@ -24,7 +24,7 @@ defaults:
 
 env:
   CI: true
-  NODE_VERSION: 22.12.0 # mínimo exigido em src/package.json ("engines")
+  NODE_VERSION: 22.22.2 # mínimo da série 22 exigido pelo jsdom 31 (ver "engines" em src/package.json)
 
 jobs:
   build:
