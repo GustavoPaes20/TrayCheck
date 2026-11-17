@@ -6,7 +6,7 @@ info:
   description: |
     API REST do **TrayCheck**, sistema de checklist de instrumentos cirúrgicos pré-cirurgia com assistência de voz (Projeto Integrador, FAMETRO, 2026).
 
-    Contrato de API (IC-16), revisão 1.1, alinhado à ERS v2.3, à RTM v1.1 e às migrações `db/migrations` V001–V005. O frontend (`src/frontend/services/api.ts`) usa 22 destas rotas; as demais cobrem os outros requisitos funcionais.
+    Contrato de API (IC-16), revisão 1.1, alinhado à ERS v2.3.1, à RTM v1.2 e às migrações `db/migrations` V001–V005. O frontend (`src/frontend/services/api.ts`) usa 22 destas rotas; as demais cobrem os outros requisitos funcionais.
 
     ### Requisitos atendidos
     Numeração da ERS v2.3 (ordem do fluxo e de implementação).
