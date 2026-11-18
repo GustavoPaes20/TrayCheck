@@ -39,7 +39,7 @@ src/
   http/autenticacao.ts Identifica o usuário pelo token (Bearer ou cookie) e preenche req.usuario
   http/perfis.ts       admin/nurse/technician <-> perfis do banco; aplica o x-roles do contrato
   http/parametros.ts   Leitura de :id, ?active=, ?q= e formatação de datas
-  dominio/             Regras e consultas reutilizadas (sessões, usuários, checagens, relatórios)
+  dominio/             Regras e consultas reutilizadas (sessões, usuários, senhas, checagens, relatórios)
   rotas/               Um arquivo por área do contrato (autenticacao.ts, instrumentais.ts, ...)
 ```
 
@@ -53,7 +53,7 @@ src/
 | 4 | RF04 | `/surgeries/{id}/checklists`, `/surgeries/{id}/checklists/active` | Concluída |
 | 5 | RF05 a RF08, RF09, RF10, RF11 | `/checks`, `/reports` | Concluída |
 | 6 | RF02 | `/auth/login`, `/auth/logout`, `/auth/me` | Concluída |
-| 7 | RF12 | `/users` | A fazer |
+| 7 | RF12 | `/users`, `/users/{id}`, `/users/{id}/status` | Concluída |
 | 8 | Apoio | `/profile`, `/dashboard`, `/stock` | A fazer |
 
 Rota do contrato ainda sem implementação responde 501.
@@ -83,6 +83,13 @@ curl -H "Authorization: Bearer <accessToken>" http://localhost:3000/api/v1/auth/
 - As sessões ficam na tabela `sessao` (migração **V006**): só o hash SHA-256 do token é gravado.
 - A sessão expira após **8 horas sem atividade** (`SESSAO_OCIOSA_HORAS`) e cada uso a renova.
 - O logout encerra a sessão. Usuário inativo perde o acesso na hora.
+
+### Gestão de usuários (RF12)
+
+Só o administrador acessa `/users`. Ao cadastrar, informe `password` (mínimo de 8 caracteres) ou omita para o
+backend gerar uma senha aleatória, devolvida **uma única vez** em `initialPassword`. Inativar (`PATCH /users/{id}/status`)
+ou redefinir a senha (`PUT` com `password`) encerra as sessões abertas do usuário. O último administrador ativo não
+pode ser inativado nem perder o perfil.
 
 Usuários do seed: `admin@hospitalcentral.br` / `admin123` (admin), `ana.silva@hospitalcentral.br` / `senha123`
 (enfermeira), `rafael.lima@hospitalcentral.br` / `circ123` (circulante); os demais usam `traycheck123`.

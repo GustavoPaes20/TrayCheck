@@ -57,3 +57,6 @@ export function dataEHoraBr(iso: string): { date: string; time: string } {
 /** Data "dd/MM/yyyy" no fuso do servidor. */
 export const dataBr = (data: Date): string =>
   `${doisDigitos(data.getDate())}/${doisDigitos(data.getMonth() + 1)}/${data.getFullYear()}`;
+
+/** Último acesso para exibição (AppUser.lastActive): "dd/MM/yyyy" ou "Nunca". */
+export const ultimoAcessoLegivel = (data: Date | null): string => (data ? dataBr(data) : 'Nunca');

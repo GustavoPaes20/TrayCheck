@@ -1,7 +1,7 @@
 import type { RowDataPacket } from 'mysql2/promise';
 import { config } from '../config.js';
 import { consultarUm } from '../db/pool.js';
-import { dataBr } from '../http/parametros.js';
+import { dataBr, ultimoAcessoLegivel } from '../http/parametros.js';
 import { paraPapel, type PerfilBanco } from '../http/perfis.js';
 
 // Usuário no formato do contrato (`AuthUser`). Reaproveitado pelo login, /auth/me e,
@@ -17,11 +17,12 @@ export type LinhaUsuario = RowDataPacket & {
   turno: string | null;
   ativo: number;
   criado_em: Date;
+  ultimo_acesso_em: Date | null;
   perfil: PerfilBanco;
 };
 
 export const COLUNAS_USUARIO = `u.id, u.nome, u.email, u.senha_hash, u.telefone, u.registro_profissional,
-       u.turno, u.ativo, u.criado_em, p.codigo AS perfil`;
+       u.turno, u.ativo, u.criado_em, u.ultimo_acesso_em, p.codigo AS perfil`;
 
 /** "Ana Silva" -> "AS"; "Rafael" -> "RA". */
 export function iniciais(nome: string): string {
@@ -46,6 +47,20 @@ export function paraAuthUser(linha: LinhaUsuario) {
     phone: linha.telefone ?? '',
     ...(linha.registro_profissional ? { crm: linha.registro_profissional } : {}),
     joinedAt: dataBr(linha.criado_em),
+  };
+}
+
+/** Usuário no formato de gestão (`AppUser`), usado pelas rotas /users. */
+export function paraAppUser(linha: LinhaUsuario) {
+  return {
+    id: String(linha.id),
+    name: linha.nome,
+    email: linha.email,
+    role: paraPapel(linha.perfil),
+    shift: linha.turno ?? '',
+    status: linha.ativo ? ('active' as const) : ('inactive' as const),
+    lastActive: ultimoAcessoLegivel(linha.ultimo_acesso_em),
+    initials: iniciais(linha.nome),
   };
 }
 

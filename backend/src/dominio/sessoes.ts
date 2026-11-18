@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { RowDataPacket } from 'mysql2/promise';
 import { config } from '../config.js';
-import { consultarUm, executar } from '../db/pool.js';
+import { consultarUm, executar, pool } from '../db/pool.js';
 import { erros } from '../http/erros.js';
 import { paraPapel, type Papel, type PerfilBanco } from '../http/perfis.js';
 
@@ -93,10 +93,14 @@ export async function revogarSessao(sessaoId: number): Promise<void> {
   await executar('UPDATE sessao SET revogada_em = NOW() WHERE id = ? AND revogada_em IS NULL', [sessaoId]);
 }
 
+/** Quem executa o SQL: o pool, ou a conexão de uma transação em andamento. */
+type Executor = Pick<typeof pool, 'execute'>;
+
 /**
- * Encerra TODAS as sessões de um usuário. Deve ser chamada ao inativá-lo (RF12): sem isso, uma
- * reativação logo depois faria as sessões antigas voltarem a valer.
+ * Encerra TODAS as sessões de um usuário. Chamada ao inativá-lo (RF12) e ao redefinir a senha dele:
+ * sem isso, reativar o usuário logo depois faria as sessões antigas voltarem a valer.
+ * Passe a conexão da transação para a revogação valer junto com a alteração do usuário.
  */
-export async function revogarSessoesDoUsuario(usuarioId: number): Promise<void> {
-  await executar('UPDATE sessao SET revogada_em = NOW() WHERE usuario_id = ? AND revogada_em IS NULL', [usuarioId]);
+export async function revogarSessoesDoUsuario(usuarioId: number, executor: Executor = pool): Promise<void> {
+  await executor.execute('UPDATE sessao SET revogada_em = NOW() WHERE usuario_id = ? AND revogada_em IS NULL', [usuarioId]);
 }
