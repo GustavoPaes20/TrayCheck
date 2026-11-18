@@ -126,6 +126,7 @@ function duplicadoPorChave(mensagemMysql: string): ErroApi {
     [/codigo$/, 'code', 'Já existe um registro com este código.'],
     [/nome$/, 'name', 'Já existe um registro com este nome.'],
     [/email$/, 'email', 'Já existe um usuário com este e-mail.'],
+    [/versao$/, 'version', 'Já existe uma versão com este identificador para o procedimento.'],
   ];
   for (const [padrao, campo, texto] of campos) {
     if (padrao.test(chave)) return new ErroApi(409, 'DUPLICADO', texto, { fields: { [campo]: texto } });

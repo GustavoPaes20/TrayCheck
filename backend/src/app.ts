@@ -5,6 +5,7 @@ import { verificarBanco } from './db/pool.js';
 import { autenticar } from './http/autenticacao.js';
 import { rotaNaoEncontrada, tratadorDeErros } from './http/erros.js';
 import { autorizarPeloContrato } from './http/perfis.js';
+import { rotasChecklists } from './rotas/checklists.js';
 import { rotasInstrumentais } from './rotas/instrumentais.js';
 import { rotasKits } from './rotas/kits.js';
 import { rotasProcedimentos } from './rotas/procedimentos.js';
@@ -76,6 +77,7 @@ export function criarApp(): Express {
   api.use(rotasInstrumentais); // RF01
   api.use(rotasKits); // RF01
   api.use(rotasProcedimentos); // RF03
+  api.use(rotasChecklists); // RF04
   app.use(config.prefixoApi, api);
 
   app.use(rotaNaoEncontrada);
