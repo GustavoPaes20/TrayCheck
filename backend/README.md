@@ -54,6 +54,12 @@ Para voltar ao modo demonstração (sem backend), apague `src/.env.local`.
 - Sala e horário da programação do dia vêm das checagens do dia (não há agenda de cirurgias).
 - O cadastro de usuário não envia senha: o backend gera uma e a devolve em `initialPassword`, que a tela ainda não exibe.
 
+## Documentação relacionada
+
+- [`docs/api/openapi.yaml`](../docs/api/openapi.yaml) — contrato oficial (1.2.0).
+- [`docs/api/GUIA_FRONTEND.md`](../docs/api/GUIA_FRONTEND.md) — guia de integração do frontend (fluxo `/checks`, `initialPassword`, ajustes de estoque, status `divergent`/`skipped`).
+- [`docs/adr/`](../docs/adr/README.md) — decisões arquiteturais (sessões, painel derivado, saldo de estoque).
+
 ## Estrutura
 
 ```
