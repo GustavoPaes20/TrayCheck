@@ -18,9 +18,6 @@ async function iniciar(): Promise<void> {
 
   const servidor = criarApp().listen(config.porta, () => {
     console.log(`[api] TrayCheck ouvindo em http://localhost:${config.porta}${config.prefixoApi}`);
-    if (config.autenticacaoProvisoria) {
-      console.warn('[api] AUTENTICAÇÃO PROVISÓRIA ativa: use "Authorization: Bearer dev-<id do usuário>".');
-    }
   });
 
   const encerrar = (sinal: string) => {

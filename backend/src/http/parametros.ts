@@ -53,3 +53,7 @@ export function dataEHoraBr(iso: string): { date: string; time: string } {
   const [ano, mes, dia] = data.split('-');
   return { date: `${dia}/${mes}/${ano}`, time: hora.slice(0, 5) };
 }
+
+/** Data "dd/MM/yyyy" no fuso do servidor. */
+export const dataBr = (data: Date): string =>
+  `${doisDigitos(data.getDate())}/${doisDigitos(data.getMonth() + 1)}/${data.getFullYear()}`;
