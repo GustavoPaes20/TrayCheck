@@ -50,7 +50,7 @@ src/
 | 2 | RF01 | `/instruments`, `/kits` | Concluída |
 | 3 | RF03 | `/surgeries` | Concluída |
 | 4 | RF04 | `/surgeries/{id}/checklists`, `/surgeries/{id}/checklists/active` | Concluída |
-| 5 | RF05 a RF11 | `/checks`, `/reports` | A fazer |
+| 5 | RF05 a RF08, RF09, RF10, RF11 | `/checks`, `/reports` | Concluída |
 | 6+ | RF02 e RF12 | `/auth`, `/users`, `/profile` | A fazer |
 
 Rota do contrato ainda sem implementação responde 501.

@@ -5,10 +5,12 @@ import { verificarBanco } from './db/pool.js';
 import { autenticar } from './http/autenticacao.js';
 import { rotaNaoEncontrada, tratadorDeErros } from './http/erros.js';
 import { autorizarPeloContrato } from './http/perfis.js';
+import { rotasChecagens } from './rotas/checagens.js';
 import { rotasChecklists } from './rotas/checklists.js';
 import { rotasInstrumentais } from './rotas/instrumentais.js';
 import { rotasKits } from './rotas/kits.js';
 import { rotasProcedimentos } from './rotas/procedimentos.js';
+import { rotasRelatorios } from './rotas/relatorios.js';
 
 /** CORS simples para o frontend (Vite) chamar a API com cookies/credenciais. */
 const cors: RequestHandler = (req, res, next) => {
@@ -78,6 +80,8 @@ export function criarApp(): Express {
   api.use(rotasKits); // RF01
   api.use(rotasProcedimentos); // RF03
   api.use(rotasChecklists); // RF04
+  api.use(rotasChecagens); // RF05 a RF08, RF11
+  api.use(rotasRelatorios); // RF09, RF10
   app.use(config.prefixoApi, api);
 
   app.use(rotaNaoEncontrada);
