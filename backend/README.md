@@ -48,7 +48,7 @@ src/
 | --- | --- | --- | --- |
 | 1 | Fundação | — | Concluída |
 | 2 | RF01 | `/instruments`, `/kits` | Concluída |
-| 3 | RF03 | `/surgeries` | A fazer |
+| 3 | RF03 | `/surgeries` | Concluída |
 | 4 | RF04 | `/surgeries/{id}/checklists` | A fazer |
 | 5 | RF05 a RF11 | `/checks`, `/reports` | A fazer |
 | 6+ | RF02 e RF12 | `/auth`, `/users`, `/profile` | A fazer |

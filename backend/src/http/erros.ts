@@ -76,6 +76,7 @@ function traduzirMensagem(mensagem = ''): string {
     .replace(/^must match format "(.+)"$/, 'Formato inválido ($1).')
     .replace(/^must NOT have fewer than (\d+) characters$/, 'Deve ter pelo menos $1 caracteres.')
     .replace(/^must NOT have more than (\d+) characters$/, 'Deve ter no máximo $1 caracteres.')
+    .replace(/^must match pattern ".*"$/, 'Formato inválido: use apenas letras minúsculas, números e hífen.')
     .replace(/^must NOT have fewer than (\d+) items$/, 'Informe ao menos $1 item.')
     .replace(/^must NOT have more than (\d+) items$/, 'Informe no máximo $1 itens.')
     .replace(/^must be (string|integer|number|boolean|object|array)$/, (_, tipo: string) => `Tipo inválido (esperado ${tipo}).`)
