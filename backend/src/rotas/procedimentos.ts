@@ -71,7 +71,7 @@ async function buscarPorIdOuCodigo(idOuCodigo: string): Promise<LinhaProcediment
   return consultarUm<LinhaProcedimento>(`${SELECT_PROCEDIMENTO} WHERE p.id = ?`, [Number(idOuCodigo)]);
 }
 
-async function obterOu404(idOuCodigo: string | undefined): Promise<LinhaProcedimento> {
+export async function obterProcedimentoOu404(idOuCodigo: string | undefined): Promise<LinhaProcedimento> {
   const linha = idOuCodigo ? await buscarPorIdOuCodigo(idOuCodigo) : undefined;
   if (!linha) throw erros.naoEncontrado('Procedimento não encontrado.');
   return linha;
@@ -125,7 +125,7 @@ rotasProcedimentos.get('/surgeries', async (req, res) => {
 
 // GET /surgeries/:id
 rotasProcedimentos.get('/surgeries/:id', async (req, res) => {
-  res.json(paraContrato(await obterOu404(req.params.id)));
+  res.json(paraContrato(await obterProcedimentoOu404(req.params.id)));
 });
 
 // POST /surgeries — RN02: criado_por é o administrador logado (o gatilho do banco confere de novo)
@@ -136,12 +136,12 @@ rotasProcedimentos.post('/surgeries', async (req, res) => {
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [dados.code, dados.name, dados.specialty, dados.description, dados.duration, dados.active, req.usuario!.id],
   );
-  res.status(201).json(paraContrato(await obterOu404(dados.code)));
+  res.status(201).json(paraContrato(await obterProcedimentoOu404(dados.code)));
 });
 
 // PUT /surgeries/:id
 rotasProcedimentos.put('/surgeries/:id', async (req, res) => {
-  const atual = await obterOu404(req.params.id);
+  const atual = await obterProcedimentoOu404(req.params.id);
   const dados = validarTextos(req.body as EntradaProcedimento);
   await executar(
     `UPDATE procedimento
@@ -149,12 +149,12 @@ rotasProcedimentos.put('/surgeries/:id', async (req, res) => {
       WHERE id = ?`,
     [dados.code, dados.name, dados.specialty, dados.description, dados.duration, dados.active, atual.id],
   );
-  res.json(paraContrato(await obterOu404(dados.code)));
+  res.json(paraContrato(await obterProcedimentoOu404(dados.code)));
 });
 
 // DELETE /surgeries/:id — inativa (o procedimento tem checklists e checagens no histórico)
 rotasProcedimentos.delete('/surgeries/:id', async (req, res) => {
-  const atual = await obterOu404(req.params.id);
+  const atual = await obterProcedimentoOu404(req.params.id);
   await executar('UPDATE procedimento SET ativo = FALSE WHERE id = ?', [atual.id]);
   res.status(204).end();
 });
@@ -170,7 +170,7 @@ type LinhaItemDoKit = RowDataPacket & {
 
 // GET /surgeries/:id/kit — itens do checklist padrão ATIVO, no formato da tela de kits e da checagem por voz
 rotasProcedimentos.get('/surgeries/:id/kit', async (req, res) => {
-  const procedimento = await obterOu404(req.params.id);
+  const procedimento = await obterProcedimentoOu404(req.params.id);
   const itens = await consultar<LinhaItemDoKit>(
     `SELECT ic.instrumental_id, i.nome, ic.quantidade_esperada, i.unidade, i.categoria, i.critico
        FROM checklist_padrao cp

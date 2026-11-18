@@ -64,6 +64,9 @@ info:
     - `ReportItem.status`: `missing` virou `divergent` e `pending` saiu do enum.
     - `ChecklistReport` ganhou o campo opcional `room` (sala).
 
+    ### Proposta para a 1.2.0 (pendente de RFC)
+    - `StandardChecklistInput` ganhou o campo opcional `kitId` (cópia de kit, UC04 passo 4 e fluxo A4); `items` deixou de ser obrigatório quando `kitId` é informado.
+
     ### Convenções
     - IDs são strings (o banco usa `INT UNSIGNED`).
     - Datas exibidas pela interface usam `dd/MM/yyyy` e horários `HH:mm:ss`, como no frontend. Os recursos novos usam ISO 8601.
@@ -2379,12 +2382,22 @@ components:
 
     StandardChecklistInput:
       type: object
-      required: [version, items]
+      description: |
+        Informe `items`, `kitId` ou os dois (ao menos um deles).
+
+        Com `kitId`, os instrumentais do kit são copiados, com suas quantidades, para o checklist (UC04, passo 4).
+        Se um instrumental do kit já estiver em `items`, o item não é duplicado e a quantidade do kit é
+        somada à informada (UC04, fluxo A4). Instrumental repetido dentro do próprio `items` é recusado (UC04, A1).
+      required: [version]
       properties:
         version:
           type: string
           maxLength: 20
           example: '1.1'
+        kitId:
+          type: string
+          description: Kit cujos instrumentais são copiados para o checklist. Deve existir e estar ativo.
+          example: '3'
         items:
           type: array
           minItems: 1
