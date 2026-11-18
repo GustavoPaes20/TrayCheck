@@ -12,6 +12,7 @@ import { rotasInstrumentais } from './rotas/instrumentais.js';
 import { rotasKits } from './rotas/kits.js';
 import { rotasProcedimentos } from './rotas/procedimentos.js';
 import { rotasRelatorios } from './rotas/relatorios.js';
+import { rotasUsuarios } from './rotas/usuarios.js';
 
 /** CORS simples para o frontend (Vite) chamar a API com cookies/credenciais. */
 const cors: RequestHandler = (req, res, next) => {
@@ -78,6 +79,7 @@ export function criarApp(): Express {
   // Rotas da API (/api/v1). Cada fase registra aqui o seu roteador.
   const api = express.Router();
   api.use(rotasAutenticacao); // RF02
+  api.use(rotasUsuarios); // RF12
   api.use(rotasInstrumentais); // RF01
   api.use(rotasKits); // RF01
   api.use(rotasProcedimentos); // RF03

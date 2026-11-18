@@ -65,6 +65,7 @@ info:
     - `ChecklistReport` ganhou o campo opcional `room` (sala).
 
     ### Proposta para a 1.2.0 (pendente de RFC)
+    - `UserInput` ganhou o campo opcional `password` e `POST /users` passou a responder `UserCreated` (`initialPassword` quando a senha é gerada pelo backend); `PUT /users/{id}` redefine a senha quando `password` é informado (RF12).
     - `StandardChecklistInput` ganhou o campo opcional `kitId` (cópia de kit, UC04 passo 4 e fluxo A4); `items` deixou de ser obrigatório quando `kitId` é informado.
 
     ### Convenções
@@ -236,7 +237,9 @@ paths:
       description: |
         **Perfis permitidos:** Administrador.
 
-        A senha inicial é definida pelo backend e enviada ao usuário; o frontend nunca envia hash de senha.
+        O administrador pode informar a senha inicial em `password` (mínimo de 8 caracteres, gravada só como hash bcrypt).
+        Se omitir, o backend gera uma senha aleatória e a devolve **uma única vez** em `initialPassword`, para o
+        administrador repassar ao usuário. O frontend nunca envia hash de senha.
       operationId: createUser
       requestBody:
         required: true
@@ -246,11 +249,11 @@ paths:
               $ref: '#/components/schemas/UserInput'
       responses:
         '201':
-          description: Usuário criado.
+          description: Usuário criado. `initialPassword` só aparece quando a senha foi gerada pelo backend.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AppUser'
+                $ref: '#/components/schemas/UserCreated'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -328,6 +331,9 @@ paths:
       x-roles: [admin]
       description: |
         **Perfis permitidos:** Administrador.
+
+        Se `password` for informado, a senha do usuário é redefinida e as sessões abertas dele são encerradas.
+        O último administrador ativo não pode perder o perfil de administrador nem ser inativado (409).
   /users/{id}/status:
     parameters:
       - $ref: '#/components/parameters/Id'
@@ -1968,6 +1974,23 @@ components:
           type: string
           maxLength: 60
           example: Turno B (19:00–07:00)
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          description: Senha inicial (no POST) ou nova senha (no PUT). Opcional; mínimo de 8 caracteres (ERS, RF02).
+
+    UserCreated:
+      description: Usuário criado. `initialPassword` é devolvida uma única vez, e só quando o backend gerou a senha.
+      allOf:
+        - $ref: '#/components/schemas/AppUser'
+        - type: object
+          properties:
+            initialPassword:
+              type: string
+              description: Senha gerada pelo backend. Não é possível consultá-la depois.
+              example: 'Kq7mXw3RtN9p'
 
     UserStatusInput:
       type: object

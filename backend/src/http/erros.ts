@@ -136,7 +136,10 @@ function duplicadoPorChave(mensagemMysql: string): ErroApi {
     [/versao$/, 'version', 'Já existe uma versão com este identificador para o procedimento.'],
   ];
   for (const [padrao, campo, texto] of campos) {
-    if (padrao.test(chave)) return new ErroApi(409, 'DUPLICADO', texto, { fields: { [campo]: texto } });
+    if (padrao.test(chave)) {
+      // O contrato do POST /users documenta o código EMAIL_DUPLICADO.
+      return new ErroApi(409, campo === 'email' ? 'EMAIL_DUPLICADO' : 'DUPLICADO', texto, { fields: { [campo]: texto } });
+    }
   }
   return erros.duplicado();
 }
