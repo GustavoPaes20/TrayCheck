@@ -2,11 +2,11 @@ openapi: 3.0.3
 
 info:
   title: TrayCheck API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     API REST do **TrayCheck**, sistema de checklist de instrumentos cirúrgicos pré-cirurgia com assistência de voz (Projeto Integrador, FAMETRO, 2026).
 
-    Contrato de API (IC-16), revisão 1.1, alinhado à ERS v2.3.1, à RTM v1.2 e às migrações `db/migrations` V001–V005. O frontend (`src/frontend/services/api.ts`) usa 22 destas rotas; as demais cobrem os outros requisitos funcionais.
+    Contrato de API (IC-16), revisão 1.2, alinhado à ERS v2.3.1, à RTM v1.2 e às migrações `db/migrations` V001–V007. O frontend (`src/frontend/services/api.ts`) usa 22 destas rotas; as demais cobrem os outros requisitos funcionais.
 
     ### Requisitos atendidos
     Numeração da ERS v2.3 (ordem do fluxo e de implementação).
@@ -64,7 +64,7 @@ info:
     - `ReportItem.status`: `missing` virou `divergent` e `pending` saiu do enum.
     - `ChecklistReport` ganhou o campo opcional `room` (sala).
 
-    ### Proposta para a 1.2.0 (pendente de RFC)
+    ### Alterações na 1.2.0 (RFC a registrar)
     - Apoio: `CheckItem.method` passou a listar `null` no enum (era nullable sem null no enum) e `PUT /stock/{id}` documenta o 409; preferências de notificação em `preferencia_notificacao` (V007); o dashboard é derivado das checagens reais do dia.
     - `UserInput` ganhou o campo opcional `password` e `POST /users` passou a responder `UserCreated` (`initialPassword` quando a senha é gerada pelo backend); `PUT /users/{id}` redefine a senha quando `password` é informado (RF12).
     - `StandardChecklistInput` ganhou o campo opcional `kitId` (cópia de kit, UC04 passo 4 e fluxo A4); `items` deixou de ser obrigatório quando `kitId` é informado.
@@ -73,7 +73,7 @@ info:
     - IDs são strings (o banco usa `INT UNSIGNED`).
     - Datas exibidas pela interface usam `dd/MM/yyyy` e horários `HH:mm:ss`, como no frontend. Os recursos novos usam ISO 8601.
     - Erros retornam o schema `Error` com `message` em português.
-    - Campos sem tabela nas migrações V001–V005 estão marcados na descrição e dependem de uma migração V006.
+    - Campos sem tabela nas migrações V001–V005 estão marcados na descrição e dependem de uma migração futura.
   contact:
     name: Equipe TrayCheck — FAMETRO
     url: https://github.com/GustavoPaes20/TrayCheck
@@ -2285,16 +2285,16 @@ components:
           type: integer
           minimum: 0
           example: 2
-          description: Sem tabela nas migrações V001–V005 (sem tabela de agenda); dados de demonstração até a V006.
+          description: Sem tabela de agenda. O backend devolve sempre 0 até existir uma migração de agenda.
         room:
           type: string
           example: Sala 3
-          description: Sem tabela nas migrações V001–V005 (sem tabela de agenda); dados de demonstração até a V006.
+          description: Sem tabela de agenda. O backend omite este campo até existir uma migração de agenda.
         time:
           type: string
           example: '08:00'
 
-          description: Sem tabela nas migrações V001–V005 (sem tabela de agenda); dados de demonstração até a V006.
+          description: Sem tabela de agenda. O backend omite este campo até existir uma migração de agenda.
     SurgeryInput:
       type: object
       required: [code, name, specialty]

@@ -23,7 +23,7 @@ function numero(nome: string, padrao: number): number {
 export const config = {
   porta: numero('PORT', 3000),
   ambiente: texto('NODE_ENV', 'development'),
-  origensCors: texto('CORS_ORIGIN', 'http://localhost:5173')
+  origensCors: texto('CORS_ORIGIN', 'http://localhost:8443')
     .split(',')
     .map((origem) => origem.trim())
     .filter(Boolean),

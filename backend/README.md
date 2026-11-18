@@ -27,6 +27,33 @@ npm run dev             # http://localhost:3000/api/v1  (recarrega ao salvar)
 
 `GET /health` (fora do contrato) mostra se o banco responde e quais migrações estão aplicadas.
 
+## Conectar o frontend (src/)
+
+O frontend roda em `http://localhost:8443` (Vite) e o backend em `http://localhost:3000`. O backend só aceita
+chamadas dessa origem (`CORS_ORIGIN` no `.env`; o padrão já é a 8443).
+
+```bash
+# Terminal 1 — backend (banco traycheck, com os dados de demonstração)
+cd backend && npm run dev
+
+# Terminal 2 — frontend apontando para o backend
+cd src
+echo "VITE_API_BASE_URL=http://localhost:3000/api/v1" > .env.local   # arquivo ignorado pelo Git
+corepack pnpm@10.34.3 install --frozen-lockfile
+corepack pnpm@10.34.3 dev                                            # abre em http://localhost:8443
+```
+
+Para voltar ao modo demonstração (sem backend), apague `src/.env.local`.
+
+**Limitações conhecidas** (o frontend ainda usa o contrato antigo; ajustes ficam no `src/`):
+
+- Ao concluir uma conferência por voz, o frontend envia o relatório montado no navegador para `POST /reports`
+  (rota obsoleta). O backend exige um `checkId` de checagem finalizada, então a tela mostra "Relatório não salvo".
+  O caminho definitivo é `POST /checks` → `PATCH /checks/{id}/items/{itemId}` → `POST /checks/{id}/finalize`.
+- O frontend ainda usa o item `missing` nos relatórios; o contrato atual usa `divergent` e `skipped`.
+- Sala e horário da programação do dia vêm das checagens do dia (não há agenda de cirurgias).
+- O cadastro de usuário não envia senha: o backend gera uma e a devolve em `initialPassword`, que a tela ainda não exibe.
+
 ## Estrutura
 
 ```
