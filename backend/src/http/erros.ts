@@ -35,6 +35,13 @@ export const erros = {
   duplicado: (mensagem = 'Já existe um registro com este código.') => new ErroApi(409, 'DUPLICADO', mensagem),
   checagemEncerrada: (mensagem = 'Esta checagem já foi finalizada e não pode ser alterada.') =>
     new ErroApi(409, 'CHECAGEM_ENCERRADA', mensagem),
+  /** RN03 com a mensagem certa para cada situação (finalizada ou cancelada). */
+  checagemEncerradaPor: (status: string) =>
+    erros.checagemEncerrada(
+      status === 'cancelada'
+        ? 'Esta checagem foi cancelada e não pode ser alterada.'
+        : 'Esta checagem já foi finalizada e não pode ser alterada.',
+    ),
   conflito: (codigo: string, mensagem: string) => new ErroApi(409, codigo, mensagem),
   naoImplementado: () =>
     new ErroApi(501, 'NAO_IMPLEMENTADO', 'Esta rota está no contrato, mas ainda não foi implementada.'),
@@ -150,6 +157,7 @@ function deMysql(erro: ErroMysql): ErroApi | undefined {
   if (erro.sqlState === '45000') {
     if (mensagem.startsWith('RN02')) return erros.semPermissao(mensagem);
     if (mensagem.startsWith('RN03')) return erros.checagemEncerrada(mensagem);
+    if (mensagem.startsWith('RN01')) return erros.conflito('ITENS_PENDENTES', mensagem);
     return erros.conflito('REGRA_DE_NEGOCIO', mensagem);
   }
   return undefined;
