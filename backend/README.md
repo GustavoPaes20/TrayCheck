@@ -38,7 +38,22 @@ src/
   http/erros.ts        ErroApi e tradução de erros (validador, MySQL) para o schema Error
   http/autenticacao.ts Autenticação PROVISÓRIA (até o RF02)
   http/perfis.ts       admin/nurse/technician <-> perfis do banco; aplica o x-roles do contrato
+  http/parametros.ts   Leitura de :id, ?active=, ?q= e formatação de datas
+  rotas/               Um arquivo por área do contrato (instrumentais.ts, kits.ts, ...)
 ```
+
+## Andamento (ordem do professor)
+
+| Fase | Requisito | Rotas | Situação |
+| --- | --- | --- | --- |
+| 1 | Fundação | — | Concluída |
+| 2 | RF01 | `/instruments`, `/kits` | Concluída |
+| 3 | RF03 | `/surgeries` | A fazer |
+| 4 | RF04 | `/surgeries/{id}/checklists` | A fazer |
+| 5 | RF05 a RF11 | `/checks`, `/reports` | A fazer |
+| 6+ | RF02 e RF12 | `/auth`, `/users`, `/profile` | A fazer |
+
+Rota do contrato ainda sem implementação responde 501.
 
 ## Como uma requisição é tratada
 

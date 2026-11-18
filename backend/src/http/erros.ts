@@ -76,6 +76,8 @@ function traduzirMensagem(mensagem = ''): string {
     .replace(/^must match format "(.+)"$/, 'Formato inválido ($1).')
     .replace(/^must NOT have fewer than (\d+) characters$/, 'Deve ter pelo menos $1 caracteres.')
     .replace(/^must NOT have more than (\d+) characters$/, 'Deve ter no máximo $1 caracteres.')
+    .replace(/^must NOT have fewer than (\d+) items$/, 'Informe ao menos $1 item.')
+    .replace(/^must NOT have more than (\d+) items$/, 'Informe no máximo $1 itens.')
     .replace(/^must be (string|integer|number|boolean|object|array)$/, (_, tipo: string) => `Tipo inválido (esperado ${tipo}).`)
     .replace(/^must be >= (.+)$/, 'Deve ser maior ou igual a $1.')
     .replace(/^must be <= (.+)$/, 'Deve ser menor ou igual a $1.');
@@ -113,11 +115,28 @@ function ehErroMysql(erro: unknown): erro is ErroMysql {
   return typeof erro === 'object' && erro !== null && 'sqlState' in erro;
 }
 
+/**
+ * Duplicidade (UNIQUE): descobre qual campo repetiu pelo nome da chave
+ * ("... for key 'instrumental.uq_instrumental_nome'") e responde com a mensagem do campo.
+ */
+function duplicadoPorChave(mensagemMysql: string): ErroApi {
+  const chave = /for key '([^']+)'/.exec(mensagemMysql)?.[1] ?? '';
+  const campos: Array<[RegExp, string, string]> = [
+    [/codigo$/, 'code', 'Já existe um registro com este código.'],
+    [/nome$/, 'name', 'Já existe um registro com este nome.'],
+    [/email$/, 'email', 'Já existe um usuário com este e-mail.'],
+  ];
+  for (const [padrao, campo, texto] of campos) {
+    if (padrao.test(chave)) return new ErroApi(409, 'DUPLICADO', texto, { fields: { [campo]: texto } });
+  }
+  return erros.duplicado();
+}
+
 function deMysql(erro: ErroMysql): ErroApi | undefined {
   const mensagem = erro.sqlMessage ?? '';
   switch (erro.code) {
     case 'ER_DUP_ENTRY':
-      return erros.duplicado();
+      return duplicadoPorChave(mensagem);
     case 'ER_ROW_IS_REFERENCED_2':
       return erros.conflito('EM_USO', 'Este registro está em uso e não pode ser excluído.');
     case 'ER_NO_REFERENCED_ROW_2':
