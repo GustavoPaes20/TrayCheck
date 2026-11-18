@@ -65,6 +65,7 @@ info:
     - `ChecklistReport` ganhou o campo opcional `room` (sala).
 
     ### Proposta para a 1.2.0 (pendente de RFC)
+    - Apoio: `CheckItem.method` passou a listar `null` no enum (era nullable sem null no enum) e `PUT /stock/{id}` documenta o 409; preferências de notificação em `preferencia_notificacao` (V007); o dashboard é derivado das checagens reais do dia.
     - `UserInput` ganhou o campo opcional `password` e `POST /users` passou a responder `UserCreated` (`initialPassword` quando a senha é gerada pelo backend); `PUT /users/{id}` redefine a senha quando `password` é informado (RF12).
     - `StandardChecklistInput` ganhou o campo opcional `kitId` (cópia de kit, UC04 passo 4 e fluxo A4); `items` deixou de ser obrigatório quando `kitId` é informado.
 
@@ -439,7 +440,7 @@ paths:
       description: |
         **Perfis permitidos:** qualquer usuário autenticado.
 
-        Sem tabela nas migrações V001–V005: as preferências exigem uma migração (V006). Até lá, ficam em memória/demonstração.
+        Guardadas por usuário na tabela `preferencia_notificacao` (migração V007). Quem nunca salvou recebe os padrões: alerta de estoque, lembrete de cirurgia e checklist por voz ligados; relatório semanal desligado.
     put:
       tags: [Perfil]
       summary: Salva as preferências de notificação
@@ -506,7 +507,7 @@ paths:
       description: |
         **Perfis permitidos:** qualquer usuário autenticado.
 
-        Totais de cirurgias e estoque e a programação do dia. Os totais vêm de agregações (procedimentos, checagens e `estoque_item.situacao`). `schedule` e `surgeryTrend` **não têm tabela** nas migrações V001–V005: até existir uma migração (V006), o backend responde com dados de demonstração.
+        Totais de cirurgias e estoque e a programação do dia, calculados por agregação. Como não há tabela de agenda, o painel é derivado das **checagens reais do dia**: `totalSurgeries` = checagens iniciadas hoje (sem as canceladas); `readyKits` = checagens de hoje concluídas sem divergência; `schedule` = essas mesmas checagens (horário de início, sala e situação `em-andamento` ou `concluida`; `surgeon` traz o operador da checagem; nunca há `aguardando`); `surgeryTrend` = hoje comparado a ontem; os totais de estoque vêm de `estoque_item.situacao`.
       operationId: getDashboard
       responses:
         '200':
@@ -1628,6 +1629,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
       x-roles: [admin]
@@ -2077,13 +2080,13 @@ components:
             positive:
               type: boolean
               example: true
-          description: Sem tabela nas migrações V001–V005; dados de demonstração até a V006.
+          description: Checagens iniciadas hoje comparadas às de ontem (sem as canceladas).
         schedule:
           type: array
           items:
             $ref: '#/components/schemas/ScheduleEntry'
 
-          description: Sem tabela nas migrações V001–V005 (sem tabela de agenda); dados de demonstração até a V006.
+          description: Checagens do dia, da mais cedo para a mais tarde (sem as canceladas).
     ScheduleEntry:
       type: object
       required: [id, surgeryId, time, surgery, room, surgeon, status]
@@ -2520,7 +2523,7 @@ components:
           $ref: '#/components/schemas/CheckItemStatus'
         method:
           type: string
-          enum: [voz, toque]
+          enum: [voz, toque, null]
           nullable: true
           description: Como o item foi marcado (RNF02 — toque como alternativa à voz).
         transcript:

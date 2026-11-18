@@ -104,3 +104,14 @@ type Executor = Pick<typeof pool, 'execute'>;
 export async function revogarSessoesDoUsuario(usuarioId: number, executor: Executor = pool): Promise<void> {
   await executor.execute('UPDATE sessao SET revogada_em = NOW() WHERE usuario_id = ? AND revogada_em IS NULL', [usuarioId]);
 }
+
+/**
+ * Encerra as sessões do usuário EXCETO a que está em uso. Chamada ao trocar a própria senha:
+ * quem está usando continua logado, mas qualquer outro dispositivo com a senha antiga é derrubado.
+ */
+export async function revogarOutrasSessoes(usuarioId: number, sessaoAtualId: number, executor: Executor = pool): Promise<void> {
+  await executor.execute(
+    'UPDATE sessao SET revogada_em = NOW() WHERE usuario_id = ? AND id <> ? AND revogada_em IS NULL',
+    [usuarioId, sessaoAtualId],
+  );
+}

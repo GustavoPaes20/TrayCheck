@@ -54,7 +54,7 @@ src/
 | 5 | RF05 a RF08, RF09, RF10, RF11 | `/checks`, `/reports` | Concluída |
 | 6 | RF02 | `/auth/login`, `/auth/logout`, `/auth/me` | Concluída |
 | 7 | RF12 | `/users`, `/users/{id}`, `/users/{id}/status` | Concluída |
-| 8 | Apoio | `/profile`, `/dashboard`, `/stock` | A fazer |
+| 8 | Apoio | `/profile`, `/dashboard`, `/stock` | Concluída |
 
 Rota do contrato ainda sem implementação responde 501.
 
@@ -83,6 +83,12 @@ curl -H "Authorization: Bearer <accessToken>" http://localhost:3000/api/v1/auth/
 - As sessões ficam na tabela `sessao` (migração **V006**): só o hash SHA-256 do token é gravado.
 - A sessão expira após **8 horas sem atividade** (`SESSAO_OCIOSA_HORAS`) e cada uso a renova.
 - O logout encerra a sessão. Usuário inativo perde o acesso na hora.
+
+### Rotas de apoio
+
+- **Perfil** (`/profile`): cada usuário só altera os próprios dados (nome e telefone). A troca de senha confere a atual e encerra as OUTRAS sessões. As preferências de notificação ficam em `preferencia_notificacao` (migração **V007**).
+- **Dashboard** (`/dashboard`): sem tabela de agenda, é derivado das checagens reais do dia (programação, tendência hoje x ontem, kits prontos) e das situações do estoque.
+- **Estoque** (`/stock`): leitura para todos; o resto só do administrador. O saldo muda apenas por movimentação (histórico imutável) e nunca fica negativo.
 
 ### Gestão de usuários (RF12)
 
