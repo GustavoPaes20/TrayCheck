@@ -134,6 +134,7 @@ function duplicadoPorChave(mensagemMysql: string): ErroApi {
     [/nome$/, 'name', 'Já existe um registro com este nome.'],
     [/email$/, 'email', 'Já existe um usuário com este e-mail.'],
     [/versao$/, 'version', 'Já existe uma versão com este identificador para o procedimento.'],
+    [/instrumental$/, 'instrumentId', 'Já existe um saldo de estoque para este instrumental.'],
   ];
   for (const [padrao, campo, texto] of campos) {
     if (padrao.test(chave)) {
@@ -161,6 +162,7 @@ function deMysql(erro: ErroMysql): ErroApi | undefined {
     if (mensagem.startsWith('RN02')) return erros.semPermissao(mensagem);
     if (mensagem.startsWith('RN03')) return erros.checagemEncerrada(mensagem);
     if (mensagem.startsWith('RN01')) return erros.conflito('ITENS_PENDENTES', mensagem);
+    if (mensagem.startsWith('Estoque insuficiente')) return new ErroApi(400, 'ESTOQUE_INSUFICIENTE', mensagem);
     return erros.conflito('REGRA_DE_NEGOCIO', mensagem);
   }
   return undefined;

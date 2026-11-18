@@ -8,8 +8,11 @@ import { autorizarPeloContrato } from './http/perfis.js';
 import { rotasAutenticacao } from './rotas/autenticacao.js';
 import { rotasChecagens } from './rotas/checagens.js';
 import { rotasChecklists } from './rotas/checklists.js';
+import { rotasDashboard } from './rotas/dashboard.js';
+import { rotasEstoque } from './rotas/estoque.js';
 import { rotasInstrumentais } from './rotas/instrumentais.js';
 import { rotasKits } from './rotas/kits.js';
+import { rotasPerfil } from './rotas/perfil.js';
 import { rotasProcedimentos } from './rotas/procedimentos.js';
 import { rotasRelatorios } from './rotas/relatorios.js';
 import { rotasUsuarios } from './rotas/usuarios.js';
@@ -80,6 +83,9 @@ export function criarApp(): Express {
   const api = express.Router();
   api.use(rotasAutenticacao); // RF02
   api.use(rotasUsuarios); // RF12
+  api.use(rotasPerfil); // apoio: perfil
+  api.use(rotasDashboard); // apoio: dashboard
+  api.use(rotasEstoque); // apoio: estoque
   api.use(rotasInstrumentais); // RF01
   api.use(rotasKits); // RF01
   api.use(rotasProcedimentos); // RF03

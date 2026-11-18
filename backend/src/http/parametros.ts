@@ -60,3 +60,10 @@ export const dataBr = (data: Date): string =>
 
 /** Último acesso para exibição (AppUser.lastActive): "dd/MM/yyyy" ou "Nunca". */
 export const ultimoAcessoLegivel = (data: Date | null): string => (data ? dataBr(data) : 'Nunca');
+
+/** "dd/MM/yyyy HH:mm" no fuso do servidor (StockItem.lastUpdated). */
+export const dataHoraBr = (data: Date): string =>
+  `${dataBr(data)} ${doisDigitos(data.getHours())}:${doisDigitos(data.getMinutes())}`;
+
+/** "HH:mm" no fuso do servidor. */
+export const horaMinuto = (data: Date): string => `${doisDigitos(data.getHours())}:${doisDigitos(data.getMinutes())}`;
