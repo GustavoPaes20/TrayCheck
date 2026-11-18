@@ -29,7 +29,11 @@ export const config = {
     .filter(Boolean),
   prefixoApi: '/api/v1',
   caminhoOpenApi: path.resolve(PASTA_BACKEND, texto('OPENAPI_PATH', '../docs/api/openapi.yaml')),
-  autenticacaoProvisoria: texto('AUTH_PROVISORIA', 'false') === 'true',
+  // Sessão (RF02): expira após este tempo SEM atividade. A ERS manda 8 horas.
+  sessaoOciosaSegundos: numero('SESSAO_OCIOSA_HORAS', 8) * 3600,
+  nomeDoCookie: 'traycheck_session',
+  // Sem coluna no banco (AuthUser.hospital): valor de configuração.
+  hospital: texto('HOSPITAL_NOME', 'Hospital Central'),
   banco: {
     host: texto('DB_HOST', '127.0.0.1'),
     porta: numero('DB_PORT', 3306),

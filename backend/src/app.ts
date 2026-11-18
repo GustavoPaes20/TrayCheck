@@ -5,6 +5,7 @@ import { verificarBanco } from './db/pool.js';
 import { autenticar } from './http/autenticacao.js';
 import { rotaNaoEncontrada, tratadorDeErros } from './http/erros.js';
 import { autorizarPeloContrato } from './http/perfis.js';
+import { rotasAutenticacao } from './rotas/autenticacao.js';
 import { rotasChecagens } from './rotas/checagens.js';
 import { rotasChecklists } from './rotas/checklists.js';
 import { rotasInstrumentais } from './rotas/instrumentais.js';
@@ -76,6 +77,7 @@ export function criarApp(): Express {
 
   // Rotas da API (/api/v1). Cada fase registra aqui o seu roteador.
   const api = express.Router();
+  api.use(rotasAutenticacao); // RF02
   api.use(rotasInstrumentais); // RF01
   api.use(rotasKits); // RF01
   api.use(rotasProcedimentos); // RF03

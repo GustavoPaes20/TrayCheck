@@ -6,7 +6,7 @@ com o cliente `mysql`), e não dependem da linguagem escolhida para o backend.
 
 ```
 db/
-  migrations/   Estrutura do banco, aplicada em ordem (V001 → V005)
+  migrations/   Estrutura do banco, aplicada em ordem (V001 → V006)
   seeds/        Dados de demonstração (os mesmos do modo demonstração do frontend)
   der/          Diagrama entidade-relacionamento gerado a partir do banco
   aplicar.sh    Aplica migrações (e seeds) registrando as versões em schema_versao
@@ -36,7 +36,7 @@ Usuários de demonstração: `admin@hospitalcentral.br` / `admin123`,
 `ana.silva@hospitalcentral.br` / `senha123`, `rafael.lima@hospitalcentral.br` / `circ123`;
 os demais usam `traycheck123`. As senhas estão gravadas como hash bcrypt.
 
-> Nunca altere uma migração já aplicada em um ambiente compartilhado: crie uma nova (`V006__...`).
+> Nunca altere uma migração já aplicada em um ambiente compartilhado: crie uma nova (`V007__...`).
 
 ## Tabelas e requisitos
 
@@ -47,6 +47,7 @@ os demais usam `traycheck123`. As senhas estão gravadas como hash bcrypt.
 | V003 | `checklist_padrao`, `item_checklist` | RF04, RN02 |
 | V004 | `checagem`, `item_checagem`, `divergencia`, `relatorio_conferencia` | RF05–RF11, RN01, RN03, RN04, RNF06 |
 | V005 | `estoque_item`, `estoque_movimentacao` | Telas e endpoints de estoque do frontend |
+| V006 | `sessao` | RF02 (sessões de login: expiração por inatividade, logout e revogação), RNF01 |
 
 ### Numeração dos requisitos (ERS v2.2 → v2.3)
 
