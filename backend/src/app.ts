@@ -7,6 +7,7 @@ import { rotaNaoEncontrada, tratadorDeErros } from './http/erros.js';
 import { autorizarPeloContrato } from './http/perfis.js';
 import { rotasInstrumentais } from './rotas/instrumentais.js';
 import { rotasKits } from './rotas/kits.js';
+import { rotasProcedimentos } from './rotas/procedimentos.js';
 
 /** CORS simples para o frontend (Vite) chamar a API com cookies/credenciais. */
 const cors: RequestHandler = (req, res, next) => {
@@ -74,6 +75,7 @@ export function criarApp(): Express {
   const api = express.Router();
   api.use(rotasInstrumentais); // RF01
   api.use(rotasKits); // RF01
+  api.use(rotasProcedimentos); // RF03
   app.use(config.prefixoApi, api);
 
   app.use(rotaNaoEncontrada);
