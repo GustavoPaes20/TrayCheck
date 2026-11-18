@@ -5,6 +5,8 @@ import { verificarBanco } from './db/pool.js';
 import { autenticar } from './http/autenticacao.js';
 import { rotaNaoEncontrada, tratadorDeErros } from './http/erros.js';
 import { autorizarPeloContrato } from './http/perfis.js';
+import { rotasInstrumentais } from './rotas/instrumentais.js';
+import { rotasKits } from './rotas/kits.js';
 
 /** CORS simples para o frontend (Vite) chamar a API com cookies/credenciais. */
 const cors: RequestHandler = (req, res, next) => {
@@ -68,9 +70,10 @@ export function criarApp(): Express {
   app.use(autenticar);
   app.use(autorizarPeloContrato);
 
-  // Rotas da API (/api/v1). Cada fase registra aqui o seu roteador:
-  //   Fase 2: RF01 instrumentais e kits  ->  api.use(rotasInstrumentais) ...
+  // Rotas da API (/api/v1). Cada fase registra aqui o seu roteador.
   const api = express.Router();
+  api.use(rotasInstrumentais); // RF01
+  api.use(rotasKits); // RF01
   app.use(config.prefixoApi, api);
 
   app.use(rotaNaoEncontrada);
