@@ -88,7 +88,7 @@ uma segunda barreira, para que nenhum caminho (API, script, acesso direto) quebr
 | RN06 — versões do checklist padrão | No máximo um checklist ativo por procedimento; checklist já usado não pode ter itens alterados (crie nova versão) |
 | RF06 — iniciar checagem | Só com checklist ativo; os itens são copiados como `pendente` com a quantidade esperada |
 
-## Diferenças em relação ao diagrama de classes (ERS v2.1, seção 4.2)
+## Diferenças em relação ao diagrama de classes (ERS v2.5, seção 4.1; lista oficial na seção 4.3.3)
 
 Estas mudanças precisam ser registradas por RFC e refletidas no ERS:
 
