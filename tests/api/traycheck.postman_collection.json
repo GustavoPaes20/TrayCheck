@@ -577,7 +577,7 @@
       ]
     },
     {
-      "name": "03 · Painel e cirurgias (RF04, RF05)",
+      "name": "03 · Painel e cirurgias (RF05, RF06)",
       "item": [
         {
           "name": "GET /dashboard → DashboardSummary",
@@ -726,7 +726,7 @@
       ]
     },
     {
-      "name": "04 · Estoque (RF01, RN02, RN05)",
+      "name": "04 · Estoque (RF03, RN02, RN05)",
       "item": [
         {
           "name": "GET /stock (enfermeira pode consultar)",
@@ -1480,7 +1480,7 @@
       ]
     },
     {
-      "name": "05 · Relatórios e auditoria (RF07–RF10, RN01, RN04)",
+      "name": "05 · Relatórios e auditoria (RF08–RF11, RN01, RN04)",
       "item": [
         {
           "name": "GET /reports → ChecklistReport[]",
@@ -1801,7 +1801,7 @@
           ]
         },
         {
-          "name": "GET /reports inclui o relatório criado (RF10)",
+          "name": "GET /reports inclui o relatório criado (RF11)",
           "request": {
             "method": "GET",
             "header": [
@@ -1836,7 +1836,7 @@
       ]
     },
     {
-      "name": "06 · Usuários (RF12, RN02, RN05)",
+      "name": "06 · Usuários (RF01, RN02, RN05)",
       "item": [
         {
           "name": "GET /users como enfermeira → 403",

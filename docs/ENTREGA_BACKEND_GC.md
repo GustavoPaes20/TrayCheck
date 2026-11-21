@@ -2,6 +2,8 @@
 
 **Projeto:** TrayCheck (Projeto Integrador, FAMETRO) · **Data:** 18/11/2026 · **Responsável pelo backend:** Henrique Augusto de Souza Barros
 
+> **Nota (21/11/2026):** este pacote usa a numeração de requisitos e casos de uso da ERS v2.3/v2.4. A partir da ERS v2.5 a numeração mudou (o cadastro de usuários passou a ser o RF01); a equivalência está em `db/README.md`. O texto abaixo foi mantido como registrado em 18/11/2026.
+
 Este arquivo reúne tudo o que o Gerente de Configuração precisa para atualizar os documentos oficiais (Word) e a planilha `Controle_ICs`. **Os textos abaixo estão prontos para copiar e colar.** Os números de versão são sugestões e podem ser ajustados.
 
 ---

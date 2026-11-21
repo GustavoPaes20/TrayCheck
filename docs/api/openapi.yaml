@@ -6,22 +6,22 @@ info:
   description: |
     API REST do **TrayCheck**, sistema de checklist de instrumentos cirúrgicos pré-cirurgia com assistência de voz (Projeto Integrador, FAMETRO, 2026).
 
-    Contrato de API (IC-16), revisão 1.2, alinhado à ERS v2.3.1, à RTM v1.2 e às migrações `db/migrations` V001–V007. O frontend (`src/frontend/services/api.ts`) usa 22 destas rotas; as demais cobrem os outros requisitos funcionais.
+    Contrato de API (IC-16), revisão 1.2, alinhado à ERS v2.5, à RTM v1.4 e às migrações `db/migrations` V001–V007. O frontend (`src/frontend/services/api.ts`) usa 22 destas rotas; as demais cobrem os outros requisitos funcionais.
 
     ### Requisitos atendidos
-    Numeração da ERS v2.3 (ordem do fluxo e de implementação).
-    - **RF01** cadastrar instrumentais e kits
+    Numeração da ERS v2.5 (ordem de uso: o cadastro de usuários vem primeiro).
+    - **RF01** gerenciar usuários
     - **RF02** autenticar e controlar o acesso por perfil (segurança)
-    - **RF03** cadastrar procedimentos
-    - **RF04** vincular checklist padrão versionado ao procedimento
-    - **RF05** iniciar checagem
-    - **RF06** confirmar (com quantidade) ou pular itens
-    - **RF07** registrar divergências (faltante, excedente ou outro)
-    - **RF08** finalizar a checagem
-    - **RF09** gerar o relatório de conferência
-    - **RF10** consultar histórico de checagens e relatórios
-    - **RF11** cancelar checagem em andamento
-    - **RF12** gerenciar usuários
+    - **RF03** cadastrar instrumentais e kits
+    - **RF04** cadastrar procedimentos
+    - **RF05** vincular checklist padrão versionado ao procedimento
+    - **RF06** iniciar checagem
+    - **RF07** confirmar (com quantidade) ou pular itens
+    - **RF08** registrar divergências (faltante, excedente ou outro)
+    - **RF09** finalizar a checagem
+    - **RF10** gerar o relatório de conferência
+    - **RF11** consultar histórico de checagens e relatórios
+    - **RF12** cancelar checagem em andamento
     - Rotas de apoio ao frontend: dashboard, estoque e perfil
 
     ### Regras de negócio
@@ -41,11 +41,11 @@ info:
     | Área | Administrador | Enfermeiro(a) | Circulante |
     | --- | --- | --- | --- |
     | Usuários | gerencia | não | não |
-    | Instrumentais e kits (UC02) | cadastra | cadastra | consulta |
-    | Procedimentos e checklists padrão (UC03, UC04) | cadastra | consulta | consulta |
-    | Iniciar e cancelar checagem (UC05, UC11) | executa | executa | consulta |
-    | Confirmar, pular, divergência, finalizar (UC06 a UC09) | consulta | executa | executa |
-    | Relatórios (UC10) | consulta | consulta | consulta |
+    | Instrumentais e kits (UC03) | cadastra | cadastra | consulta |
+    | Procedimentos e checklists padrão (UC04, UC05) | cadastra | consulta | consulta |
+    | Iniciar e cancelar checagem (UC06, UC12) | executa | executa | consulta |
+    | Confirmar, pular, divergência, finalizar (UC07 a UC10) | consulta | executa | executa |
+    | Relatórios (UC11) | consulta | consulta | consulta |
     | Estoque | gerencia | consulta | consulta |
 
     Cada operação traz o campo `x-roles` com os perfis permitidos.
@@ -59,15 +59,15 @@ info:
     | `divergente` | `divergent` | gera registro em `divergencia`; o tipo (faltante, excedente ou outro) está em `divergenceDetails` |
 
     ### Alterações na 1.1.0
-    - Requisitos citados com a numeração da ERS v2.3 (RF01 a RF12).
+    - Requisitos citados com a numeração da ERS v2.5 (RF01 a RF12).
     - `POST /checks` e `POST /checks/{id}/cancel` passam a aceitar o perfil Administrador (RN05).
     - `ReportItem.status`: `missing` virou `divergent` e `pending` saiu do enum.
     - `ChecklistReport` ganhou o campo opcional `room` (sala).
 
     ### Alterações na 1.2.0 (RFC a registrar)
     - Apoio: `CheckItem.method` passou a listar `null` no enum (era nullable sem null no enum) e `PUT /stock/{id}` documenta o 409; preferências de notificação em `preferencia_notificacao` (V007); o dashboard é derivado das checagens reais do dia.
-    - `UserInput` ganhou o campo opcional `password` e `POST /users` passou a responder `UserCreated` (`initialPassword` quando a senha é gerada pelo backend); `PUT /users/{id}` redefine a senha quando `password` é informado (RF12).
-    - `StandardChecklistInput` ganhou o campo opcional `kitId` (cópia de kit, UC04 passo 4 e fluxo A4); `items` deixou de ser obrigatório quando `kitId` é informado.
+    - `UserInput` ganhou o campo opcional `password` e `POST /users` passou a responder `UserCreated` (`initialPassword` quando a senha é gerada pelo backend); `PUT /users/{id}` redefine a senha quando `password` é informado (RF01).
+    - `StandardChecklistInput` ganhou o campo opcional `kitId` (cópia de kit, UC05 passo 4 e fluxo A4); `items` deixou de ser obrigatório quando `kitId` é informado.
 
     ### Convenções
     - IDs são strings (o banco usa `INT UNSIGNED`).
@@ -93,23 +93,23 @@ tags:
   - name: Autenticação
     description: Login, logout e sessão atual (RF02)
   - name: Usuários
-    description: Gestão de usuários pelo administrador (RF12, RN05)
+    description: Gestão de usuários pelo administrador (RF01, RN05)
   - name: Perfil
     description: Dados e preferências do usuário logado
   - name: Dashboard
     description: Resumo da tela inicial
   - name: Instrumentais
-    description: Cadastro de instrumentais cirúrgicos (RF01)
+    description: Cadastro de instrumentais cirúrgicos (RF03)
   - name: Kits
-    description: Cadastro de kits de instrumentais (RF01)
+    description: Cadastro de kits de instrumentais (RF03)
   - name: Procedimentos
-    description: Cadastro de procedimentos/cirurgias (RF03, RN02)
+    description: Cadastro de procedimentos/cirurgias (RF04, RN02)
   - name: Checklists padrão
-    description: Vínculo de checklist padrão ao procedimento (RF04, RN02)
+    description: Vínculo de checklist padrão ao procedimento (RF05, RN02)
   - name: Checagens
-    description: Execução da checagem, itens, divergências, finalização e cancelamento (RF05–RF08, RF11, RN01, RN03, RN04, RN08)
+    description: Execução da checagem, itens, divergências, finalização e cancelamento (RF06–RF09, RF12, RN01, RN03, RN04, RN08)
   - name: Relatórios
-    description: Relatórios de conferência e histórico (RF09, RF10)
+    description: Relatórios de conferência e histórico (RF10, RF11)
   - name: Estoque
     description: Controle de estoque de instrumentais e materiais
 
@@ -521,7 +521,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  # ───────────────────────────── Instrumentais (RF01) ─────────────────────────────
+  # ───────────────────────────── Instrumentais (RF03) ─────────────────────────────
       x-roles: [admin, nurse, technician]
   /instruments:
     get:
@@ -667,7 +667,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  # ───────────────────────────── Kits (RF01) ─────────────────────────────
+  # ───────────────────────────── Kits (RF03) ─────────────────────────────
       x-roles: [admin, nurse]
   /kits:
     get:
@@ -802,7 +802,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  # ───────────────────────────── Procedimentos (RF03) ─────────────────────────────
+  # ───────────────────────────── Procedimentos (RF04) ─────────────────────────────
       x-roles: [admin, nurse]
       description: |
         **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a).
@@ -980,7 +980,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  # ───────────────────────────── Checklists padrão (RF04) ─────────────────────────────
+  # ───────────────────────────── Checklists padrão (RF05) ─────────────────────────────
       x-roles: [admin, nurse, technician]
   /surgeries/{id}/checklists:
     parameters:
@@ -1074,14 +1074,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  # ───────────────────────────── Checagens (RF05–RF08, RF11) ─────────────────────────────
+  # ───────────────────────────── Checagens (RF06–RF09, RF12) ─────────────────────────────
       x-roles: [admin, nurse, technician]
       description: |
         **Perfis permitidos:** qualquer usuário autenticado.
   /checks:
     get:
       tags: [Checagens]
-      summary: Histórico de checagens (RF10)
+      summary: Histórico de checagens (RF11)
       operationId: listChecks
       parameters:
         - name: status
@@ -1118,11 +1118,11 @@ paths:
         **Perfis permitidos:** qualquer usuário autenticado.
     post:
       tags: [Checagens]
-      summary: Inicia a checagem de um procedimento (RF05)
+      summary: Inicia a checagem de um procedimento (RF06)
       description: |
-        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC05).
+        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC06).
 
-        Cria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF05). Comando de voz equivalente: "iniciar".
+        Cria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF06). Comando de voz equivalente: "iniciar".
       operationId: startCheck
       requestBody:
         required: true
@@ -1195,14 +1195,14 @@ paths:
         example: '7'
     patch:
       tags: [Checagens]
-      summary: Confirma, pula, marca divergente ou volta o item para pendente (RF06)
+      summary: Confirma, pula, marca divergente ou volta o item para pendente (RF07)
       description: |
-        **Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante (UC06 e UC07). O Administrador apenas consulta.
+        **Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante (UC07 e UC08). O Administrador apenas consulta.
 
         Registra a marcação do item, por voz ou toque (RNF02). Comandos de voz equivalentes: "confirmar" e "pular".
 
         Estados gravados (tabela `item_checagem`): `confirmado`, `pulado`, `divergente` e `pendente`.
-        - **Pulado** não é divergência: não gera registro em `divergencia`, mas aparece no relatório como não conferido (UC07, RNF06).
+        - **Pulado** não é divergência: não gera registro em `divergencia`, mas aparece no relatório como não conferido (UC08, RNF06).
         - **RN07:** se `status = confirmado` e `foundQuantity` for diferente da esperada, o servidor grava o item como `divergente` e cria a divergência automaticamente: `faltante` quando a quantidade for menor e `excedente` quando for maior.
         - **RN04:** `status = divergente` cria a divergência (`faltante`, automática) e ela entra no relatório.
         - Voltar para `pendente` limpa quantidade, método e horário e remove a divergência automática.
@@ -1266,7 +1266,7 @@ paths:
       - $ref: '#/components/parameters/CheckId'
     get:
       tags: [Checagens]
-      summary: Lista as divergências da checagem (RF07)
+      summary: Lista as divergências da checagem (RF08)
       operationId: listDivergences
       responses:
         '200':
@@ -1288,7 +1288,7 @@ paths:
         **Perfis permitidos:** qualquer usuário autenticado.
     post:
       tags: [Checagens]
-      summary: Registra divergência manual (RF07)
+      summary: Registra divergência manual (RF08)
       description: |
         **Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante.
 
@@ -1333,7 +1333,7 @@ paths:
       - $ref: '#/components/parameters/CheckId'
     post:
       tags: [Checagens]
-      summary: Finaliza a checagem e gera o relatório (RF08, RF09)
+      summary: Finaliza a checagem e gera o relatório (RF09, RF10)
       description: |
         **Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante.
 
@@ -1393,9 +1393,9 @@ paths:
       - $ref: '#/components/parameters/CheckId'
     post:
       tags: [Checagens]
-      summary: Cancela uma checagem em andamento (RF11)
+      summary: Cancela uma checagem em andamento (RF12)
       description: |
-        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC11).
+        **Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC12).
 
         O motivo é obrigatório e fica registrado (`checagem.observacao`). A checagem cancelada permanece no histórico, não gera relatório e não pode mais ser alterada (RN03, RN08).
       operationId: cancelCheck
@@ -1432,7 +1432,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  # ───────────────────────────── Relatórios (RF09, RF10) ─────────────────────────────
+  # ───────────────────────────── Relatórios (RF10, RF11) ─────────────────────────────
       x-roles: [admin, nurse]
   /reports:
     get:
@@ -2346,7 +2346,7 @@ components:
           type: boolean
           example: true
 
-    # ── Checklist padrão (RF04) ──
+    # ── Checklist padrão (RF05) ──
     StandardChecklistItem:
       type: object
       required: [id, instrumentId, instrumentName, expectedQuantity, order]
@@ -2411,9 +2411,9 @@ components:
       description: |
         Informe `items`, `kitId` ou os dois (ao menos um deles).
 
-        Com `kitId`, os instrumentais do kit são copiados, com suas quantidades, para o checklist (UC04, passo 4).
+        Com `kitId`, os instrumentais do kit são copiados, com suas quantidades, para o checklist (UC05, passo 4).
         Se um instrumental do kit já estiver em `items`, o item não é duplicado e a quantidade do kit é
-        somada à informada (UC04, fluxo A4). Instrumental repetido dentro do próprio `items` é recusado (UC04, A1).
+        somada à informada (UC05, fluxo A4). Instrumental repetido dentro do próprio `items` é recusado (UC05, A1).
       required: [version]
       properties:
         version:
@@ -2452,7 +2452,7 @@ components:
             expectedQuantity: 2
             order: 2
 
-    # ── Checagem (RF05–RF08, RF11) ──
+    # ── Checagem (RF06–RF09, RF12) ──
     CheckStatus:
       type: string
       enum: [em_andamento, finalizada, cancelada]
@@ -2714,7 +2714,7 @@ components:
               items:
                 $ref: '#/components/schemas/Divergence'
 
-    # ── Relatórios (RF09, RF10) ──
+    # ── Relatórios (RF10, RF11) ──
     ReportItem:
       type: object
       required: [id, name, quantity, unit, category, critical, status]

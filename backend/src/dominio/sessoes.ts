@@ -97,7 +97,7 @@ export async function revogarSessao(sessaoId: number): Promise<void> {
 type Executor = Pick<typeof pool, 'execute'>;
 
 /**
- * Encerra TODAS as sessões de um usuário. Chamada ao inativá-lo (RF12) e ao redefinir a senha dele:
+ * Encerra TODAS as sessões de um usuário. Chamada ao inativá-lo (RF01) e ao redefinir a senha dele:
  * sem isso, reativar o usuário logo depois faria as sessões antigas voltarem a valer.
  * Passe a conexão da transação para a revogação valer junto com a alteração do usuário.
  */

@@ -162,7 +162,7 @@ describe('App (modo demonstração) — fluxos completos', () => {
     });
   });
 
-  describe('jornada da checagem: do dashboard ao relatório (RF05, RF06, RF08)', () => {
+  describe('jornada da checagem: do dashboard ao relatório (RF06, RF07, RF09)', () => {
     it('"Conferir" na programação do dia abre a conferência da cirurgia escolhida', async () => {
       const { user } = renderizar();
       await fazerLogin(user, 'nurse');

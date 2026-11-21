@@ -4,7 +4,7 @@ import { consultar, consultarUm, emTransacao, executar } from '../db/pool.js';
 import { erros } from '../http/erros.js';
 import { aparar, booleanoDaConsulta, idDaRota, padraoDeBusca } from '../http/parametros.js';
 
-// RF01 — Cadastrar, editar e inativar kits (contrato: /kits).
+// RF03 — Cadastrar, editar e inativar kits (contrato: /kits).
 // Um kit tem uma lista de itens (instrumental + quantidade); criar/editar o kit e seus itens
 // acontece numa transação: ou grava tudo, ou nada.
 

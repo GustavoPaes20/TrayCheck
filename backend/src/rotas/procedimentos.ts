@@ -5,7 +5,7 @@ import { erros } from '../http/erros.js';
 import { aparar, booleanoDaConsulta, padraoDeBusca } from '../http/parametros.js';
 import type { Categoria } from './instrumentais.js';
 
-// RF03 — Cadastrar procedimentos (contrato: /surgeries).
+// RF04 — Cadastrar procedimentos (contrato: /surgeries).
 // Só o administrador cadastra, edita e inativa (RN02): o x-roles do contrato barra os outros
 // perfis com 403, e o gatilho do banco é a segunda barreira.
 

@@ -243,7 +243,7 @@ function paraResumo(linha: LinhaChecagem) {
   };
 }
 
-/** Histórico (RF10): resumos das checagens, da mais recente para a mais antiga. */
+/** Histórico (RF11): resumos das checagens, da mais recente para a mais antiga. */
 export async function listarResumos(filtros: FiltrosChecagem) {
   return (await linhasDeChecagem(filtros)).map(paraResumo);
 }

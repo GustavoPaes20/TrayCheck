@@ -81,12 +81,12 @@ src/
 | Fase | Requisito | Rotas | Situação |
 | --- | --- | --- | --- |
 | 1 | Fundação | — | Concluída |
-| 2 | RF01 | `/instruments`, `/kits` | Concluída |
-| 3 | RF03 | `/surgeries` | Concluída |
-| 4 | RF04 | `/surgeries/{id}/checklists`, `/surgeries/{id}/checklists/active` | Concluída |
-| 5 | RF05 a RF08, RF09, RF10, RF11 | `/checks`, `/reports` | Concluída |
+| 2 | RF03 | `/instruments`, `/kits` | Concluída |
+| 3 | RF04 | `/surgeries` | Concluída |
+| 4 | RF05 | `/surgeries/{id}/checklists`, `/surgeries/{id}/checklists/active` | Concluída |
+| 5 | RF06 a RF09, RF10, RF11, RF12 | `/checks`, `/reports` | Concluída |
 | 6 | RF02 | `/auth/login`, `/auth/logout`, `/auth/me` | Concluída |
-| 7 | RF12 | `/users`, `/users/{id}`, `/users/{id}/status` | Concluída |
+| 7 | RF01 | `/users`, `/users/{id}`, `/users/{id}/status` | Concluída |
 | 8 | Apoio | `/profile`, `/dashboard`, `/stock` | Concluída |
 
 Rota do contrato ainda sem implementação responde 501.
@@ -123,7 +123,7 @@ curl -H "Authorization: Bearer <accessToken>" http://localhost:3000/api/v1/auth/
 - **Dashboard** (`/dashboard`): sem tabela de agenda, é derivado das checagens reais do dia (programação, tendência hoje x ontem, kits prontos) e das situações do estoque.
 - **Estoque** (`/stock`): leitura para todos; o resto só do administrador. O saldo muda apenas por movimentação (histórico imutável) e nunca fica negativo.
 
-### Gestão de usuários (RF12)
+### Gestão de usuários (RF01)
 
 Só o administrador acessa `/users`. Ao cadastrar, informe `password` (mínimo de 8 caracteres) ou omita para o
 backend gerar uma senha aleatória, devolvida **uma única vez** em `initialPassword`. Inativar (`PATCH /users/{id}/status`)

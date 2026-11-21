@@ -4,7 +4,7 @@ import { consultar, consultarUm, executar } from '../db/pool.js';
 import { erros } from '../http/erros.js';
 import { aparar, booleanoDaConsulta, idDaRota, padraoDeBusca, paraIso } from '../http/parametros.js';
 
-// RF01 — Cadastrar, editar e inativar instrumentais (contrato: /instruments).
+// RF03 — Cadastrar, editar e inativar instrumentais (contrato: /instruments).
 // Quem pode o quê (RN05) vem do x-roles do openapi.yaml, aplicado em http/perfis.ts.
 
 export type Categoria = 'EPI' | 'Instrumental' | 'Descartável' | 'Anestesia' | 'Implante';

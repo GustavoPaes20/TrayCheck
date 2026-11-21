@@ -8,7 +8,7 @@ import { erros } from '../http/erros.js';
 import { aparar, idDaRota, padraoDeBusca } from '../http/parametros.js';
 import { ID_DO_PERFIL, paraPerfilBanco, type Papel } from '../http/perfis.js';
 
-// RF12 — Gerenciar usuários (contrato: /users). Só o Administrador acessa (x-roles: [admin], RN05).
+// RF01 — Gerenciar usuários (contrato: /users). Só o Administrador acessa (x-roles: [admin], RN05).
 //
 //  - Usuário nunca é excluído (RN03/LGPD): só se inativa. Não existe DELETE.
 //  - Senha só como hash bcrypt (RNF01), com no mínimo 8 caracteres (ERS).

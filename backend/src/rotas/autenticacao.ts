@@ -40,7 +40,7 @@ rotasAutenticacao.post('/auth/login', async (req, res) => {
   const senhaConfere = await bcrypt.compare(password, usuario?.senha_hash ?? HASH_FALSO);
   if (!usuario || !senhaConfere || !usuario.ativo) throw credenciaisInvalidas();
 
-  // UC01, passo 3: registra a data do último acesso.
+  // UC02, passo 3: registra a data do último acesso.
   await executar('UPDATE usuario SET ultimo_acesso_em = NOW() WHERE id = ?', [usuario.id]);
   const token = await criarSessao(usuario.id);
 

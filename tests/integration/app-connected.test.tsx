@@ -179,7 +179,7 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
     });
   });
 
-  describe('checagem integrada à API (RF05–RF08, RF10)', () => {
+  describe('checagem integrada à API (RF06–RF09, RF11)', () => {
     async function abrirConferenciaDaApendicectomia(rotas: Record<string, RotaFalsa> = {}) {
       const contexto = await renderizarApp({ 'POST /reports': { status: 201, corpo: { id: 'r99' } }, ...rotas });
       const linha = (await screen.findByText('Apendicectomia')).closest<HTMLElement>('.group')!;
@@ -278,7 +278,7 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
     });
   });
 
-  describe('relatórios (RF09, RF10)', () => {
+  describe('relatórios (RF10, RF11)', () => {
     const relatorioSalvo: ChecklistReport = {
       id: 'r1',
       surgeryId: 'apendicite',
@@ -320,7 +320,7 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
     });
   });
 
-  describe('administração de estoque (RF01)', () => {
+  describe('administração de estoque (RF03)', () => {
     async function abrirGerenciarEstoque(rotas: Record<string, RotaFalsa> = {}) {
       const contexto = await renderizarApp(rotas, { sessao: administrador });
       await contexto.user.click(await menuLateralAguardado().then((menu) => menu.getByRole('button', { name: 'Gerenciar Estoque' })));
@@ -406,7 +406,7 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
     });
   });
 
-  describe('administração de usuários (RF12, RN02, RN05)', () => {
+  describe('administração de usuários (RF01, RN02, RN05)', () => {
     const usuarios: AppUser[] = [
       { id: 'u1', name: 'Ana Silva', email: 'ana.silva@hospitalcentral.br', role: 'nurse', shift: 'Turno A', status: 'active', lastActive: '10/11/2026', initials: 'AS' },
       { id: 'u2', name: 'Carlos Mendes', email: 'admin@hospitalcentral.br', role: 'admin', shift: 'Administrativo', status: 'active', lastActive: '10/11/2026', initials: 'CM' },

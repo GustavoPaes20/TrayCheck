@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "02ec8947-c0fc-5a23-b7f0-e5bd918b761c",
     "name": "TrayCheck API",
-    "description": "Coleção Postman do **TrayCheck** (IC-17), gerada a partir de `docs/api/openapi.yaml` (IC-16).\n\n**Como usar**\n1. Suba o backend e ajuste a variável `{{baseUrl}}` (padrão: `http://localhost:3000/api/v1`).\n2. Carregue o banco de demonstração (`db/seeds`): os logins padrão da coleção são os usuários dele.\n3. Execute a coleção na ordem (Runner do Postman ou `newman run postman_collection.json`). Cada pasta guarda os IDs criados nas variáveis da coleção, e os logins trocam o `accessToken`.\n\nOs testes conferem o código HTTP documentado no contrato. O fluxo cobre RF01 a RF12 (numeração da ERS v2.3) e as regras RN01 a RN09 no que depende da API.",
+    "description": "Coleção Postman do **TrayCheck** (IC-17), gerada a partir de `docs/api/openapi.yaml` (IC-16).\n\n**Como usar**\n1. Suba o backend e ajuste a variável `{{baseUrl}}` (padrão: `http://localhost:3000/api/v1`).\n2. Carregue o banco de demonstração (`db/seeds`): os logins padrão da coleção são os usuários dele.\n3. Execute a coleção na ordem (Runner do Postman ou `newman run postman_collection.json`). Cada pasta guarda os IDs criados nas variáveis da coleção, e os logins trocam o `accessToken`.\n\nOs testes conferem o código HTTP documentado no contrato. O fluxo cobre RF01 a RF12 (numeração da ERS v2.5) e as regras RN01 a RN09 no que depende da API.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -923,7 +923,7 @@
       ]
     },
     {
-      "name": "3. Instrumentais (RF01)",
+      "name": "3. Instrumentais (RF03)",
       "description": "Cadastro de instrumentais (Administrador e Enfermeiro).",
       "item": [
         {
@@ -1385,7 +1385,7 @@
       ]
     },
     {
-      "name": "4. Kits (RF01)",
+      "name": "4. Kits (RF03)",
       "description": "Cadastro de kits (Administrador e Enfermeiro).",
       "item": [
         {
@@ -1841,7 +1841,7 @@
       ]
     },
     {
-      "name": "5. Procedimentos (RF03)",
+      "name": "5. Procedimentos (RF04)",
       "description": "Cadastro de procedimentos (somente Administrador, RN02).",
       "item": [
         {
@@ -2303,7 +2303,7 @@
       ]
     },
     {
-      "name": "6. Checklists padrão (RF04)",
+      "name": "6. Checklists padrão (RF05)",
       "description": "Vínculo do checklist padrão ao procedimento (somente Administrador, RN02).",
       "item": [
         {
@@ -3344,7 +3344,7 @@
       ]
     },
     {
-      "name": "8. Checagens (RF05 a RF08, RF11)",
+      "name": "8. Checagens (RF06 a RF09, RF12)",
       "description": "Fluxo da checagem com o Enfermeiro: iniciar, confirmar, divergência, finalizar e cancelar (RN01, RN03, RN04, RN07, RN08).",
       "item": [
         {
@@ -3457,7 +3457,7 @@
           ]
         },
         {
-          "name": "Inicia a checagem de um procedimento (RF05)",
+          "name": "Inicia a checagem de um procedimento (RF06)",
           "event": [
             {
               "listen": "test",
@@ -3505,7 +3505,7 @@
                 }
               }
             },
-            "description": "**POST /checks** — `startCheck`\n\n**Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC05).\n\nCria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF05). Comando de voz equivalente: \"iniciar\"."
+            "description": "**POST /checks** — `startCheck`\n\n**Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC06).\n\nCria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF06). Comando de voz equivalente: \"iniciar\"."
           },
           "response": [
             {
@@ -3589,7 +3589,7 @@
           ]
         },
         {
-          "name": "Histórico de checagens (RF10)",
+          "name": "Histórico de checagens (RF11)",
           "event": [
             {
               "listen": "test",
@@ -3798,7 +3798,7 @@
           ]
         },
         {
-          "name": "Confirma, pula, marca divergente ou volta o item para pendente (RF06)",
+          "name": "Confirma, pula, marca divergente ou volta o item para pendente (RF07)",
           "event": [
             {
               "listen": "test",
@@ -3844,7 +3844,7 @@
                 }
               }
             },
-            "description": "**PATCH /checks/{id}/items/{itemId}** — `updateCheckItem`\n\n**Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante (UC06 e UC07). O Administrador apenas consulta.\n\nRegistra a marcação do item, por voz ou toque (RNF02). Comandos de voz equivalentes: \"confirmar\" e \"pular\".\n\nEstados gravados (tabela `item_checagem`): `confirmado`, `pulado`, `divergente` e `pendente`.\n- **Pulado** não é divergência: não gera registro em `divergencia`, mas aparece no relatório como não conferido (UC07, RNF06).\n- **RN07:** se `status = confirmado` e `foundQuantity` for diferente da esperada, o servidor grava o item como `divergente` e cria a divergência automaticamente: `faltante` quando a quantidade for menor e `excedente` quando for maior.\n- **RN04:** `status = divergente` cria a divergência (`faltante`, automática) e ela entra no relatório.\n- Voltar para `pendente` limpa quantidade, método e horário e remove a divergência automática.\n- Um item já marcado pode ser corrigido enquanto a checagem estiver `em_andamento`. Depois de finalizada ou cancelada a checagem é imutável (RN03, 409)."
+            "description": "**PATCH /checks/{id}/items/{itemId}** — `updateCheckItem`\n\n**Perfis permitidos:** Enfermeiro(a) Instrumentador(a); Circulante (UC07 e UC08). O Administrador apenas consulta.\n\nRegistra a marcação do item, por voz ou toque (RNF02). Comandos de voz equivalentes: \"confirmar\" e \"pular\".\n\nEstados gravados (tabela `item_checagem`): `confirmado`, `pulado`, `divergente` e `pendente`.\n- **Pulado** não é divergência: não gera registro em `divergencia`, mas aparece no relatório como não conferido (UC08, RNF06).\n- **RN07:** se `status = confirmado` e `foundQuantity` for diferente da esperada, o servidor grava o item como `divergente` e cria a divergência automaticamente: `faltante` quando a quantidade for menor e `excedente` quando for maior.\n- **RN04:** `status = divergente` cria a divergência (`faltante`, automática) e ela entra no relatório.\n- Voltar para `pendente` limpa quantidade, método e horário e remove a divergência automática.\n- Um item já marcado pode ser corrigido enquanto a checagem estiver `em_andamento`. Depois de finalizada ou cancelada a checagem é imutável (RN03, 409)."
           },
           "response": [
             {
@@ -3941,7 +3941,7 @@
           ]
         },
         {
-          "name": "Registra divergência manual (RF07)",
+          "name": "Registra divergência manual (RF08)",
           "event": [
             {
               "listen": "test",
@@ -4083,7 +4083,7 @@
           ]
         },
         {
-          "name": "Lista as divergências da checagem (RF07)",
+          "name": "Lista as divergências da checagem (RF08)",
           "event": [
             {
               "listen": "test",
@@ -4173,7 +4173,7 @@
           ]
         },
         {
-          "name": "Finaliza a checagem e gera o relatório (RF08, RF09)",
+          "name": "Finaliza a checagem e gera o relatório (RF09, RF10)",
           "event": [
             {
               "listen": "test",
@@ -4481,7 +4481,7 @@
                 }
               }
             },
-            "description": "**POST /checks** — `startCheck`\n\n**Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC05).\n\nCria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF05). Comando de voz equivalente: \"iniciar\"."
+            "description": "**POST /checks** — `startCheck`\n\n**Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC06).\n\nCria a checagem a partir do checklist padrão **ativo** do procedimento e gera um item `pendente` para cada item do checklist (RF06). Comando de voz equivalente: \"iniciar\"."
           },
           "response": [
             {
@@ -4565,7 +4565,7 @@
           ]
         },
         {
-          "name": "Cancela uma checagem em andamento (RF11)",
+          "name": "Cancela uma checagem em andamento (RF12)",
           "event": [
             {
               "listen": "test",
@@ -4610,7 +4610,7 @@
                 }
               }
             },
-            "description": "**POST /checks/{id}/cancel** — `cancelCheck`\n\n**Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC11).\n\nO motivo é obrigatório e fica registrado (`checagem.observacao`). A checagem cancelada permanece no histórico, não gera relatório e não pode mais ser alterada (RN03, RN08)."
+            "description": "**POST /checks/{id}/cancel** — `cancelCheck`\n\n**Perfis permitidos:** Administrador; Enfermeiro(a) Instrumentador(a) (UC12).\n\nO motivo é obrigatório e fica registrado (`checagem.observacao`). A checagem cancelada permanece no histórico, não gera relatório e não pode mais ser alterada (RN03, RN08)."
           },
           "response": [
             {
@@ -4709,7 +4709,7 @@
       ]
     },
     {
-      "name": "9. Relatórios (RF09, RF10)",
+      "name": "9. Relatórios (RF10, RF11)",
       "description": "Relatórios de conferência gerados ao finalizar a checagem.",
       "item": [
         {

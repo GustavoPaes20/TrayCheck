@@ -85,7 +85,7 @@ describe('VoiceChecklist — conferência por voz', () => {
       expect(screen.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeInTheDocument();
     });
 
-    it('marcar como faltante sinaliza a divergência no item e no painel de itens em falta (RF07)', async () => {
+    it('marcar como faltante sinaliza a divergência no item e no painel de itens em falta (RF08)', async () => {
       const { user } = renderizar();
 
       await user.click(screen.getAllByTitle('Faltando')[0]);
@@ -148,7 +148,7 @@ describe('VoiceChecklist — conferência por voz', () => {
     });
   });
 
-  describe('comandos Pular / Repetir (RF06)', () => {
+  describe('comandos Pular / Repetir (RF07)', () => {
     it('"Pular" marca o primeiro item pendente como faltante e avisa por voz', async () => {
       const { user } = renderizar();
 
@@ -199,7 +199,7 @@ describe('VoiceChecklist — conferência por voz', () => {
     });
   });
 
-  describe('reconhecimento de voz (RF05, RF06, RNF03, RNF07)', () => {
+  describe('reconhecimento de voz (RF06, RF07, RNF03, RNF07)', () => {
     it('avisa e não inicia quando o navegador não suporta reconhecimento de voz', async () => {
       vi.stubGlobal('SpeechRecognition', undefined);
       vi.stubGlobal('webkitSpeechRecognition', undefined);
@@ -327,7 +327,7 @@ describe('VoiceChecklist — conferência por voz', () => {
     });
   });
 
-  describe('conclusão e divergências (RF07, RF08, RN04)', () => {
+  describe('conclusão e divergências (RF08, RF09, RN04)', () => {
     async function conferirTudoExcetoUmFaltante() {
       const contexto = renderizar();
       await ativarMicrofone(contexto.user);

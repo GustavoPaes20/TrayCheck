@@ -1,0 +1,72 @@
+@startuml casos_de_uso
+' TrayCheck — Diagrama de Casos de Uso (ERS v2.5, seção 3.2)
+' Numeração da ERS v2.5: o cadastro de usuários (UC01) vem primeiro.
+' Gerar a imagem: plantuml -tpng docs/diagramas/casos_de_uso.puml
+left to right direction
+skinparam shadowing false
+skinparam dpi 200
+skinparam ArrowColor #333333
+skinparam actor {
+  BackgroundColor #EEEEEE
+  BorderColor #333333
+}
+skinparam defaultFontName Arial
+skinparam defaultFontSize 15
+skinparam actorStyle default
+skinparam usecase {
+  BackgroundColor #F4F7FD
+  BorderColor #3B5BA9
+}
+skinparam rectangle {
+  BorderColor #333333
+}
+
+actor "Administrador" as ADM
+actor "Enfermeiro(a)\nInstrumentador(a)" as ENF
+actor "Circulante" as CIR
+
+rectangle "TrayCheck" {
+  usecase "UC01 Gerenciar\nUsuários" as UC01
+  usecase "UC02 Autenticar /\nControlar Perfil de Acesso" as UC02
+  usecase "UC03 Cadastrar\nInstrumentais e Kits" as UC03
+  usecase "UC04 Cadastrar\nProcedimentos" as UC04
+  usecase "UC05 Vincular\nChecklist Padrão" as UC05
+  usecase "UC06 Iniciar Checagem" as UC06
+  usecase "UC07 Confirmar Item\n(voz/toque)" as UC07
+  usecase "UC08 Pular Item" as UC08
+  usecase "UC09 Registrar\nDivergência" as UC09
+  usecase "UC10 Finalizar Checagem" as UC10
+  usecase "UC11 Gerar Relatório\nde Conferência" as UC11
+  usecase "UC12 Cancelar Checagem" as UC12
+}
+
+ADM -- UC01
+ADM -- UC02
+ADM -- UC03
+ADM -- UC04
+ADM -- UC05
+ADM -- UC06
+ADM -- UC09
+ADM -- UC11
+ADM -- UC12
+
+ENF -- UC02
+ENF -- UC03
+ENF -- UC06
+ENF -- UC07
+ENF -- UC08
+ENF -- UC09
+ENF -- UC10
+ENF -- UC11
+ENF -- UC12
+
+CIR -- UC02
+CIR -- UC07
+CIR -- UC08
+CIR -- UC09
+CIR -- UC10
+CIR -- UC11
+
+UC09 .> UC07 : <<extend>>
+UC10 .> UC11 : <<include>>
+@enduml
