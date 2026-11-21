@@ -1,5 +1,5 @@
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import { emTransacao } from '../db/pool.js';
+import { consultarUm, emTransacao } from '../db/pool.js';
 import { ID_DO_PERFIL } from '../http/perfis.js';
 import { gerarHash, gerarSenhaInicial, LIMITE_BYTES_SENHA, senhaCabeNoBcrypt } from './senhas.js';
 
@@ -34,6 +34,15 @@ export function validarDados(dados: DadosPrimeiroAdmin): Required<Omit<DadosPrim
     if (!senhaCabeNoBcrypt(dados.senha)) throw new ErroPrimeiroAdmin(`A senha deve ter no máximo ${LIMITE_BYTES_SENHA} bytes.`);
   }
   return { nome, email, ...(dados.senha !== undefined ? { senha: dados.senha } : {}) };
+}
+
+/** Quantos administradores ativos o banco tem (o script consulta antes de pedir a senha). */
+export async function contarAdministradoresAtivos(): Promise<number> {
+  const linha = await consultarUm<RowDataPacket & { total: number }>(
+    'SELECT COUNT(*) AS total FROM usuario WHERE perfil_id = ? AND ativo = TRUE',
+    [ID_DO_PERFIL.admin],
+  );
+  return Number(linha?.total ?? 0);
 }
 
 export async function criarPrimeiroAdmin(entrada: DadosPrimeiroAdmin): Promise<ResultadoPrimeiroAdmin> {

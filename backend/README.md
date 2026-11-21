@@ -43,9 +43,9 @@ npm run criar-admin -- --nome "Ana Souza" --email ana@hospital.br   # 3. primeir
 npm run dev                                          # 4. sobe a API (ou npm run build && npm start)
 ```
 
-- A senha é digitada duas vezes, sem aparecer na tela (mínimo de 8 caracteres). Com `--gerar-senha`, o script sorteia
+- A senha é digitada duas vezes e aparece só como `*` (mínimo de 8 caracteres). Com `--gerar-senha`, o script sorteia
   uma senha e a mostra **uma única vez**. No banco fica só o hash bcrypt (RNF01).
-- Se já existir administrador ativo, o script não altera nada e avisa. Os demais usuários são cadastrados pelo
+- Se já existir administrador ativo, o script avisa e não altera nada, sem chegar a pedir a senha. Os demais usuários são cadastrados pelo
   administrador, na tela de usuários ou por `POST /users`.
 - O e-mail é gravado em minúsculas. Saída 0 = criado ou nada a fazer; 1 = dados inválidos ou erro de banco.
 - Num servidor instalado sem as dependências de desenvolvimento (sem `tsx`), use a versão compilada:

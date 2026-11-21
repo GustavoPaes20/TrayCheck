@@ -1,16 +1,16 @@
 import { parseArgs } from 'node:util';
 import { config } from '../config.js';
 import { encerrarPool, verificarBanco } from '../db/pool.js';
-import { criarPrimeiroAdmin, ErroPrimeiroAdmin, validarDados } from '../dominio/primeiroAdmin.js';
+import { contarAdministradoresAtivos, criarPrimeiroAdmin, ErroPrimeiroAdmin, validarDados } from '../dominio/primeiroAdmin.js';
 
 // Cria o primeiro administrador na implantação (RF01, ERS 2.5).
 //
 //   npm run criar-admin -- --nome "Ana Souza" --email ana@hospital.br
 //   npm run criar-admin -- --nome "Ana Souza" --email ana@hospital.br --gerar-senha
 //
-// Sem --gerar-senha, a senha é digitada duas vezes no terminal, sem aparecer na tela.
+// Sem --gerar-senha, a senha é digitada duas vezes no terminal; cada caractere aparece como *.
 // Com --gerar-senha, o script sorteia uma senha e a mostra uma única vez.
-// Se já houver administrador ativo, nada é alterado (saída com código 0).
+// Se já houver administrador ativo, nada é alterado (saída com código 0) e a senha nem é pedida.
 // Códigos de saída: 0 = criado ou nada a fazer; 1 = dados inválidos ou erro de banco.
 
 const AJUDA = `Uso: npm run criar-admin -- --nome "Nome Completo" --email email@hospital.br [--gerar-senha]
@@ -20,7 +20,7 @@ const AJUDA = `Uso: npm run criar-admin -- --nome "Nome Completo" --email email@
   --gerar-senha  Gera uma senha aleatória (mostrada uma única vez) em vez de pedir no terminal
   --ajuda        Mostra esta mensagem`;
 
-/** Lê uma linha do terminal sem mostrar o que é digitado (funciona no PowerShell, no cmd e no bash). */
+/** Lê uma linha do terminal mostrando * no lugar de cada caractere (funciona no PowerShell, no cmd e no bash). */
 function lerSenhaOculta(pergunta: string): Promise<string> {
   const entrada = process.stdin;
   if (!entrada.isTTY) {
@@ -46,8 +46,15 @@ function lerSenhaOculta(pergunta: string): Promise<string> {
           rejeitar(new ErroPrimeiroAdmin('Cancelado.'));
           return;
         }
-        if (tecla === '\u007f' || tecla === '\b') senha = senha.slice(0, -1);
-        else if (tecla >= ' ') senha += tecla;
+        if (tecla === '\u007f' || tecla === '\b') {
+          if (senha.length > 0) {
+            senha = senha.slice(0, -1);
+            process.stdout.write('\b \b'); // apaga o último *
+          }
+        } else if (tecla >= ' ') {
+          senha += tecla;
+          process.stdout.write('*');
+        }
       }
     };
     const parar = () => {
@@ -57,6 +64,11 @@ function lerSenhaOculta(pergunta: string): Promise<string> {
     };
     entrada.on('data', aoDigitar);
   });
+}
+
+function avisarQueJaExiste(total: number): void {
+  console.log(`Nada a fazer: o banco ${config.banco.nome} já tem ${total} administrador(es) ativo(s).`);
+  console.log('Os demais usuários são cadastrados por um administrador, pela tela de usuários ou por POST /users.');
 }
 
 async function principal(): Promise<number> {
@@ -82,6 +94,13 @@ async function principal(): Promise<number> {
   validarDados({ nome: opcoes.nome, email: opcoes.email });
   await verificarBanco();
 
+  // Confere antes de pedir a senha: se já há administrador, não faz a pessoa digitar à toa.
+  const jaExistentes = await contarAdministradoresAtivos();
+  if (jaExistentes > 0) {
+    avisarQueJaExiste(jaExistentes);
+    return 0;
+  }
+
   let senha: string | undefined;
   if (!opcoes['gerar-senha']) {
     senha = await lerSenhaOculta('Senha do administrador (mín. 8 caracteres): ');
@@ -92,8 +111,8 @@ async function principal(): Promise<number> {
 
   const resultado = await criarPrimeiroAdmin({ nome: opcoes.nome, email: opcoes.email, ...(senha ? { senha } : {}) });
   if (resultado.situacao === 'ja_existe') {
-    console.log(`Nada a fazer: o banco ${config.banco.nome} já tem ${resultado.administradoresAtivos} administrador(es) ativo(s).`);
-    console.log('Os demais usuários são cadastrados por um administrador, pela tela de usuários ou por POST /users.');
+    // Outro administrador foi criado enquanto a senha era digitada; a transação impediu o segundo.
+    avisarQueJaExiste(resultado.administradoresAtivos);
     return 0;
   }
   console.log(`Administrador criado no banco ${config.banco.nome}: ${resultado.email} (id ${resultado.id}).`);
