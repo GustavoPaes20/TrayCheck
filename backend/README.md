@@ -1,6 +1,6 @@
 # Backend — TrayCheck
 
-API REST que implementa o contrato [`docs/api/openapi.yaml`](../docs/api/openapi.yaml) (v1.1.0)
+API REST que implementa o contrato [`docs/api/openapi.yaml`](../docs/api/openapi.yaml) (v1.2.0)
 sobre o banco MySQL das migrações [`db/migrations`](../db/migrations).
 
 **Stack:** Node.js 22+ · TypeScript · Express 5 · mysql2 · express-openapi-validator · bcryptjs

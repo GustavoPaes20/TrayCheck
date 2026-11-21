@@ -19,7 +19,7 @@ SAIDA = Path(__file__).resolve().parent / "DER_TrayCheck"
 
 # Agrupamento por módulo (CIs do Documento de Requisitos)
 GRUPOS = {
-    "Autenticação e perfis (CI-05)": ["perfil", "usuario"],
+    "Autenticação e perfis (CI-05)": ["perfil", "usuario", "sessao", "preferencia_notificacao"],
     "Cadastro (CI-01)": ["procedimento", "instrumental", "kit", "kit_instrumental",
                          "checklist_padrao", "item_checklist"],
     "Checagem (CI-02)": ["checagem", "item_checagem"],

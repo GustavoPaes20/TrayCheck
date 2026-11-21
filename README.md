@@ -1,6 +1,6 @@
 # TrayCheck
 
-O TrayCheck é um frontend React para conferência de kits cirúrgicos, controle de estoque e registro de divergências. O código executável, o manifesto de dependências e o lockfile ficam na pasta `src/`; este repositório não contém um backend.
+O TrayCheck é um sistema para conferência de kits cirúrgicos, controle de estoque e registro de divergências. O repositório tem três partes: o frontend React na pasta `src/` (com o manifesto de dependências e o lockfile), a API REST em `backend/` (Node.js, Express e TypeScript; veja [backend/README.md](backend/README.md)) e o banco MySQL em `db/` (veja [db/README.md](db/README.md)).
 
 ## Requisitos
 
@@ -38,6 +38,6 @@ Para visualizar o bundle de produção localmente, execute `corepack pnpm@10.34.
 
 ## Integração com backend
 
-Para habilitar as chamadas à API, crie `src/.env.local` com `VITE_API_BASE_URL` apontando para a URL base do backend, por exemplo `http://localhost:3000/api/v1`. O exemplo está em [src/.env.example](src/.env.example); use-o somente quando houver um backend disponível. O backend precisa implementar os endpoints e formatos descritos no [contrato da API](src/docs/frontend-api-contract.md), além de permitir a origem do frontend via CORS e configurar cookies, se usados.
+Para habilitar as chamadas à API, crie `src/.env.local` com `VITE_API_BASE_URL` apontando para a URL base do backend, por exemplo `http://localhost:3000/api/v1`. O exemplo está em [src/.env.example](src/.env.example); use-o somente quando houver um backend disponível. O backend deste repositório (`backend/`) implementa o contrato oficial [docs/api/openapi.yaml](docs/api/openapi.yaml) (versão 1.2.0). O frontend ainda segue partes do contrato antigo ([src/docs/frontend-api-contract.md](src/docs/frontend-api-contract.md)); os ajustes necessários estão em [docs/api/GUIA_FRONTEND.md](docs/api/GUIA_FRONTEND.md).
 
 Consulte [src/README.md](src/README.md) para detalhes do frontend e [src/HANDOFF.md](src/HANDOFF.md) para o handoff técnico.
