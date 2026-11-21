@@ -7,13 +7,13 @@ import { ErroApi, erros } from '../http/erros.js';
 import { aparar, idDaRota } from '../http/parametros.js';
 import { obterProcedimentoOu404 } from './procedimentos.js';
 
-// RF05 a RF08 e RF11 — execução da checagem (contrato: /checks).
+// RF06 a RF09 e RF12 — execução da checagem (contrato: /checks).
 //
 // O banco já garante as regras de fundo (RN01, RN03, RN04, RN07) com gatilhos; a API valida a entrada,
 // confere permissões (x-roles), escolhe a resposta HTTP certa e monta o JSON do contrato.
-//  - RF05: o gatilho copia os itens do checklist como "pendente" ao inserir a checagem.
-//  - RF06: o gatilho converte "confirmado com quantidade diferente" em "divergente" e cria a divergência.
-//  - RF08/RF09: ao finalizar, o gatilho gera o relatório de conferência.
+//  - RF06: o gatilho copia os itens do checklist como "pendente" ao inserir a checagem.
+//  - RF07: o gatilho converte "confirmado com quantidade diferente" em "divergente" e cria a divergência.
+//  - RF09/RF10: ao finalizar, o gatilho gera o relatório de conferência.
 //  - RN03: checagem finalizada ou cancelada não aceita mais alteração (409).
 
 type TipoDivergencia = 'faltante' | 'excedente' | 'outro';
@@ -46,7 +46,7 @@ async function travarEmAndamento(conexao: PoolConnection, checagemId: number): P
 
 export const rotasChecagens = Router();
 
-// GET /checks?status=&surgeryId=&operatorId=&from=&to= — histórico (RF10)
+// GET /checks?status=&surgeryId=&operatorId=&from=&to= — histórico (RF11)
 rotasChecagens.get('/checks', async (req, res) => {
   let operadorId: number | undefined;
   if (typeof req.query.operatorId === 'string') {
@@ -64,7 +64,7 @@ rotasChecagens.get('/checks', async (req, res) => {
   );
 });
 
-// POST /checks — RF05: inicia a checagem a partir do checklist ATIVO do procedimento
+// POST /checks — RF06: inicia a checagem a partir do checklist ATIVO do procedimento
 rotasChecagens.post('/checks', async (req, res) => {
   const entrada = req.body as EntradaInicio;
   const procedimento = await obterProcedimentoOu404(entrada.surgeryId);
@@ -97,7 +97,7 @@ rotasChecagens.get('/checks/:id', async (req, res) => {
   res.json(checagem);
 });
 
-// PATCH /checks/:id/items/:itemId — RF06: confirmar, pular, marcar divergente ou voltar para pendente
+// PATCH /checks/:id/items/:itemId — RF07: confirmar, pular, marcar divergente ou voltar para pendente
 rotasChecagens.patch('/checks/:id/items/:itemId', async (req, res) => {
   const checagemId = idDaRota(req.params.id);
   const itemId = idDaRota(req.params.itemId);
@@ -147,7 +147,7 @@ rotasChecagens.patch('/checks/:id/items/:itemId', async (req, res) => {
   res.json(await obterChecagem(checagemId));
 });
 
-// GET /checks/:id/divergences — RF07
+// GET /checks/:id/divergences — RF08
 rotasChecagens.get('/checks/:id/divergences', async (req, res) => {
   const checagemId = idDaRota(req.params.id);
   const existe = await consultar<RowDataPacket>('SELECT id FROM checagem WHERE id = ?', [checagemId]);
@@ -155,7 +155,7 @@ rotasChecagens.get('/checks/:id/divergences', async (req, res) => {
   res.json((await divergenciasDe([checagemId])).get(checagemId) ?? []);
 });
 
-// POST /checks/:id/divergences — RF07: divergência manual (ex.: item excedente fora do checklist)
+// POST /checks/:id/divergences — RF08: divergência manual (ex.: item excedente fora do checklist)
 rotasChecagens.post('/checks/:id/divergences', async (req, res) => {
   const checagemId = idDaRota(req.params.id);
   const entrada = req.body as EntradaDivergencia;
@@ -199,7 +199,7 @@ rotasChecagens.post('/checks/:id/divergences', async (req, res) => {
   res.status(201).json(criada);
 });
 
-// POST /checks/:id/finalize — RF08/RF09: finaliza (RN01) e devolve o relatório gerado pelo banco
+// POST /checks/:id/finalize — RF09/RF10: finaliza (RN01) e devolve o relatório gerado pelo banco
 rotasChecagens.post('/checks/:id/finalize', async (req, res) => {
   const checagemId = idDaRota(req.params.id);
   const observacao = textoOuNulo((req.body as { notes?: string } | undefined)?.notes);
@@ -232,7 +232,7 @@ rotasChecagens.post('/checks/:id/finalize', async (req, res) => {
   res.json(await obterRelatorio({ checagemId }));
 });
 
-// POST /checks/:id/cancel — RF11: cancela uma checagem em andamento (motivo obrigatório; sem relatório)
+// POST /checks/:id/cancel — RF12: cancela uma checagem em andamento (motivo obrigatório; sem relatório)
 rotasChecagens.post('/checks/:id/cancel', async (req, res) => {
   const checagemId = idDaRota(req.params.id);
   const motivo = aparar((req.body as { reason: string }).reason);

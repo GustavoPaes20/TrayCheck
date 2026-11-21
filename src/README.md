@@ -1,6 +1,6 @@
 # TrayCheck — frontend
 
-Esta pasta é a raiz da aplicação frontend. O TrayCheck usa React, TypeScript, Vite e Tailwind CSS; o repositório não contém backend, banco de dados ou autenticação de produção.
+Esta pasta é a raiz da aplicação frontend. O TrayCheck usa React, TypeScript, Vite e Tailwind CSS. A API REST fica em `../backend/` e o banco MySQL em `../db/`; este README trata só do frontend.
 
 ## Requisitos
 

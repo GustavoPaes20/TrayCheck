@@ -82,16 +82,16 @@ export function criarApp(): Express {
   // Rotas da API (/api/v1). Cada fase registra aqui o seu roteador.
   const api = express.Router();
   api.use(rotasAutenticacao); // RF02
-  api.use(rotasUsuarios); // RF12
+  api.use(rotasUsuarios); // RF01
   api.use(rotasPerfil); // apoio: perfil
   api.use(rotasDashboard); // apoio: dashboard
   api.use(rotasEstoque); // apoio: estoque
-  api.use(rotasInstrumentais); // RF01
-  api.use(rotasKits); // RF01
-  api.use(rotasProcedimentos); // RF03
-  api.use(rotasChecklists); // RF04
-  api.use(rotasChecagens); // RF05 a RF08, RF11
-  api.use(rotasRelatorios); // RF09, RF10
+  api.use(rotasInstrumentais); // RF03
+  api.use(rotasKits); // RF03
+  api.use(rotasProcedimentos); // RF04
+  api.use(rotasChecklists); // RF05
+  api.use(rotasChecagens); // RF06 a RF09, RF12
+  api.use(rotasRelatorios); // RF10, RF11
   app.use(config.prefixoApi, api);
 
   app.use(rotaNaoEncontrada);

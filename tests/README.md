@@ -39,20 +39,20 @@ Os testes abaixo estão marcados como falha esperada (`it.fails` no Vitest, `tes
 | --- | --- | --- |
 | "Finalizar" encerra a conferência mesmo com itens pendentes | `VoiceChecklist.tsx` (`finalizarConferencia`) | RN01 |
 | Só por toque a conferência nunca inicia/conclui (depende de ativar microfone ou modo demo) | `VoiceChecklist.tsx` | RNF02 |
-| Editar um usuário inativo (modo demo) o reativa: o formulário grava `status: 'active'` fixo | `UserManager.tsx` (`enviarFormulario`) | RF12 |
+| Editar um usuário inativo (modo demo) o reativa: o formulário grava `status: 'active'` fixo | `UserManager.tsx` (`enviarFormulario`) | RF01 |
 
 Observação de comportamento (não é falha de teste): o reconhecimento ignora palavras com 3 letras ou menos; dizer só "CO2" não confirma o item "CO2 Medicinal" (é preciso dizer "medicinal").
 
 ## Rastreabilidade (resumo)
 
-Os requisitos seguem a numeração da ERS v2.3 (RF01 a RF12). A equivalência com a numeração antiga está em `db/README.md`.
+Os requisitos seguem a numeração da ERS v2.5 (RF01 a RF12). A equivalência com a numeração antiga está em `db/README.md`.
 
 | Requisito | Cobertura |
 | --- | --- |
 | RF02, RN05 (login e perfis) | unit `login`, integração demo/conectado, Newman 00/02/06, E2E autenticação e permissões |
-| RF01, RN02 (cadastro/estoque, só admin) | unit `stock-manager`, integração conectado, Newman 04, E2E estoque |
-| RF05, RF06, RF08, RNF07 (conferência, confirmar/pular/finalizar, retorno sonoro) | unit `voice-checklist`, integração, E2E conferência por voz (mock) |
-| RF07, RF09, RF10, RN01, RN04, RNF06 (histórico, divergências, relatórios) | unit `reports`, integração conectado, Newman 05, E2E conectado (persistência) |
+| RF03, RN02 (cadastro/estoque, só admin) | unit `stock-manager`, integração conectado, Newman 04, E2E estoque |
+| RF06, RF07, RF09, RNF07 (conferência, confirmar/pular/finalizar, retorno sonoro) | unit `voice-checklist`, integração, E2E conferência por voz (mock) |
+| RF08, RF10, RF11, RN01, RN04, RNF06 (histórico, divergências, relatórios) | unit `reports`, integração conectado, Newman 05, E2E conectado (persistência) |
 | RNF01 (LGPD: proteção de credenciais) | unit `api-client` (token não vai ao armazenamento local), Newman 02/07 (nunca devolve senha/hash; troca de senha) |
 | RNF02 (fallback por toque) | E2E móvel; defeito documentado acima |
 | RNF03 (taxa de voz ≥ 80%) | **manual** |

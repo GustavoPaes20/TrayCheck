@@ -6,7 +6,7 @@ import { aparar, paraIso } from '../http/parametros.js';
 import type { Categoria } from './instrumentais.js';
 import { obterProcedimentoOu404 } from './procedimentos.js';
 
-// RF04 — Vincular checklist padrão versionado ao procedimento (UC04).
+// RF05 — Vincular checklist padrão versionado ao procedimento (UC05).
 //
 // Regras:
 //  - Cada POST cria uma NOVA versão e a torna a ativa; a anterior continua guardada, inativa
@@ -14,8 +14,8 @@ import { obterProcedimentoOu404 } from './procedimentos.js';
 //  - Versões nunca são editadas: não existe PUT. Para mudar itens, cria-se nova versão.
 //    (O banco também recusa alterar itens de checklist já usado em checagem.)
 //  - Só o administrador vincula (RN02/RN05): vem do x-roles do contrato e do gatilho do banco.
-//  - Item repetido na lista é recusado (UC04-A1); itens vindos de um kit que já estão na lista
-//    têm a quantidade somada (UC04-A4).
+//  - Item repetido na lista é recusado (UC05-A1); itens vindos de um kit que já estão na lista
+//    têm a quantidade somada (UC05-A4).
 
 type ItemEntrada = { instrumentId: string; expectedQuantity: number; order?: number };
 type EntradaChecklist = { version: string; kitId?: string; items?: ItemEntrada[] };
@@ -91,7 +91,7 @@ async function carregarChecklists(procedimentoId: number, apenasAtivo = false) {
 const ehIdNumerico = (valor: string) => /^\d{1,10}$/.test(valor);
 
 /**
- * Monta a lista final de itens do checklist a partir de `items` + `kitId`, aplicando UC04-A1 e A4.
+ * Monta a lista final de itens do checklist a partir de `items` + `kitId`, aplicando UC05-A1 e A4.
  * Reúne TODOS os problemas e responde 400 de uma vez, apontando o campo de cada um.
  */
 async function montarItens(entrada: EntradaChecklist): Promise<ItemMontado[]> {

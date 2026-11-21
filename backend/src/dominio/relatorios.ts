@@ -4,7 +4,7 @@ import { dataEHoraBr, duracaoLegivel, horaCompleta } from '../http/parametros.js
 import { paraPapel, type PerfilBanco } from '../http/perfis.js';
 import { divergenciasDe, itensDe, type ItemChecagem } from './checagens.js';
 
-// Relatório de conferência (RF09/RF10). Quem GERA é o banco: o gatilho trg_checagem_au grava a linha
+// Relatório de conferência (RF10/RF11). Quem GERA é o banco: o gatilho trg_checagem_au grava a linha
 // em `relatorio_conferencia` quando a checagem é finalizada. Aqui só LEMOS e convertemos para o contrato.
 
 export type FiltrosRelatorio = {

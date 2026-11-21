@@ -35,6 +35,6 @@ O frontend de referência permitia editar a quantidade diretamente e "travava em
 
 - Todo saldo é explicável pelo histórico de movimentações imutáveis; a concorrência é segura (duas saídas simultâneas nunca passam de zero, testado).
 - Um item que já teve movimentação não pode ser excluído, apenas ter o saldo ajustado.
-- Editar o nome pela tela de estoque altera o instrumental do catálogo (RF01), e um nome repetido retorna `409`.
+- Editar o nome pela tela de estoque altera o instrumental do catálogo (RF03), e um nome repetido retorna `409`.
 - O frontend precisa tratar `ESTOQUE_INSUFICIENTE` nos botões −5/+5 e exibir o `409` da exclusão.
 - A V005 foi mantida como está (nunca alterada); sua entrada na ERS segue pendente de RFC.

@@ -6,7 +6,7 @@ import { erros } from '../http/erros.js';
 import { idDaRota } from '../http/parametros.js';
 
 
-// RF09/RF10 — relatórios de conferência (contrato: /reports).
+// RF10/RF11 — relatórios de conferência (contrato: /reports).
 // O relatório é GERADO PELO BANCO quando a checagem é finalizada e é imutável (RN03):
 // aqui só consultamos. Não existe rota para criar, editar ou excluir relatórios.
 

@@ -42,34 +42,35 @@ os demais usam `traycheck123`. As senhas estão gravadas como hash bcrypt.
 
 | Migração | Tabelas | Requisitos |
 | --- | --- | --- |
-| V001 | `perfil`, `usuario` | RF02, RF12, RN05, RNF01 |
-| V002 | `procedimento`, `instrumental`, `kit`, `kit_instrumental` | RF01, RF03, RN02 |
-| V003 | `checklist_padrao`, `item_checklist` | RF04, RN02 |
-| V004 | `checagem`, `item_checagem`, `divergencia`, `relatorio_conferencia` | RF05–RF11, RN01, RN03, RN04, RNF06 |
+| V001 | `perfil`, `usuario` | RF01, RF02, RN05, RNF01 |
+| V002 | `procedimento`, `instrumental`, `kit`, `kit_instrumental` | RF03, RF04, RN02 |
+| V003 | `checklist_padrao`, `item_checklist` | RF05, RN02 |
+| V004 | `checagem`, `item_checagem`, `divergencia`, `relatorio_conferencia` | RF06–RF12, RN01, RN03, RN04, RNF06 |
 | V005 | `estoque_item`, `estoque_movimentacao` | Telas e endpoints de estoque do frontend |
 | V006 | `sessao` | RF02 (sessões de login: expiração por inatividade, logout e revogação), RNF01 |
 | V007 | `preferencia_notificacao` | Preferências de notificação do perfil (`/profile/notifications`) |
 
-### Numeração dos requisitos (ERS v2.2 → v2.3)
+### Numeração dos requisitos (ERS v2.2 → v2.3 → v2.5)
 
-A ERS v2.3 reordenou os requisitos funcionais na ordem do fluxo e de implementação. As tabelas acima
-já usam a numeração nova. Os comentários dentro das migrações `V001` a `V005` continuam com a numeração
-antiga, porque migrações já aplicadas não devem ser alteradas; use esta tabela para lê-los.
+A numeração dos requisitos funcionais mudou duas vezes: na ERS v2.3 (ordem do fluxo e de implementação) e
+na ERS v2.5 (cadastro de usuários primeiro, a pedido do professor). As tabelas acima usam a numeração atual
+(v2.5). Migrações já aplicadas não são alteradas: os comentários de `V001` a `V005` usam a numeração da
+ERS v2.2, e os de `V006` e `V007`, a da ERS v2.3/v2.4. Use esta tabela para lê-los.
 
-| Antiga (ERS v2.2) | Nova (ERS v2.3) | Requisito |
-| --- | --- | --- |
-| RF02 | RF01 | Cadastrar, editar e inativar instrumentais e kits |
-| RF01 | RF02 | Autenticar e controlar o acesso por perfil (segurança) |
-| RF03 | RF03 | Cadastrar procedimentos |
-| RF04 | RF04 | Vincular checklist padrão versionado |
-| RF05 | RF05 | Iniciar checagem |
-| RF06 | RF06 | Confirmar ou pular itens |
-| RF09 | RF07 | Registrar divergências |
-| RF07 | RF08 | Finalizar a checagem |
-| RF10 | RF09 | Gerar o relatório de conferência |
-| RF08 | RF10 | Consultar histórico de checagens e relatórios |
-| — | RF11 | Cancelar checagem em andamento (antes só na RN08) |
-| — | RF12 | Gerenciar usuários (antes dentro do RF01) |
+| ERS v2.5 (atual) | Requisito | ERS v2.3 e v2.4 (V006, V007) | ERS v2.2 (V001 a V005) |
+| --- | --- | --- | --- |
+| RF01 | Gerenciar usuários | RF12 | — |
+| RF02 | Autenticar e controlar o acesso por perfil (segurança) | RF02 | RF01 |
+| RF03 | Cadastrar, editar e inativar instrumentais e kits | RF01 | RF02 |
+| RF04 | Cadastrar procedimentos | RF03 | RF03 |
+| RF05 | Vincular checklist padrão versionado | RF04 | RF04 |
+| RF06 | Iniciar checagem | RF05 | RF05 |
+| RF07 | Confirmar ou pular itens | RF06 | RF06 |
+| RF08 | Registrar divergências | RF07 | RF09 |
+| RF09 | Finalizar a checagem | RF08 | RF07 |
+| RF10 | Gerar o relatório de conferência | RF09 | RF10 |
+| RF11 | Consultar histórico de checagens e relatórios | RF10 | RF08 |
+| RF12 | Cancelar checagem em andamento | RF11 | — |
 
 ![DER](der/DER_TrayCheck.png)
 
@@ -85,20 +86,20 @@ uma segunda barreira, para que nenhum caminho (API, script, acesso direto) quebr
 | RN03 — checagem finalizada não pode ser editada ou reaberta | Gatilhos bloqueiam alterar/excluir checagem, itens, divergências e relatório após finalizar; checagens nunca são excluídas, só canceladas |
 | RN04 — divergência entra automaticamente na auditoria | Item `divergente` (ou confirmado com quantidade diferente) cria a divergência; o relatório é gerado pelo banco ao finalizar |
 | RN06 — versões do checklist padrão | No máximo um checklist ativo por procedimento; checklist já usado não pode ter itens alterados (crie nova versão) |
-| RF05 — iniciar checagem | Só com checklist ativo; os itens são copiados como `pendente` com a quantidade esperada |
+| RF06 — iniciar checagem | Só com checklist ativo; os itens são copiados como `pendente` com a quantidade esperada |
 
-## Diferenças em relação ao diagrama de classes (ERS v2.1, seção 4.2)
+## Diferenças em relação ao diagrama de classes (ERS v2.5, seção 4.1; lista oficial na seção 4.3.3)
 
 Estas mudanças precisam ser registradas por RFC e refletidas no ERS:
 
 1. **Login por `email`**, não `login`: é o que o frontend e o contrato da API usam.
-2. **Status do item:** `pendente`, `confirmado`, `pulado`, `divergente` (RF06 e RN01). O frontend
+2. **Status do item:** `pendente`, `confirmado`, `pulado`, `divergente` (RF07 e RN01). O frontend
    hoje só tem `pending`, `confirmed` e `missing`, e "pular" marca como faltante; precisa ser ajustado.
 3. **`checklist_padrao.criado_por` → usuário** (no diagrama, "Perfil define ChecklistPadrao").
 4. **Estoque** (`estoque_item`, `estoque_movimentacao`): não está no diagrama, mas o frontend e o
    contrato da API (`/stock`) dependem dele.
 5. **Divergência ligada à checagem**, não só ao item: permite registrar excedentes que não
-   estão no checklist (RF07).
+   estão no checklist (RF08).
 6. **Associação Instrumental–Procedimento ("usado em") removida:** é derivável dos itens do checklist
    padrão; manter as duas criaria duas fontes de verdade.
 7. **Campos de auditoria e LGPD:** `senha_hash`, `ativo`, datas de criação/atualização, quem

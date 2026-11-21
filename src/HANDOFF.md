@@ -6,7 +6,7 @@ O TrayCheck é uma aplicação React de página única, construída com TypeScri
 
 ## Decisões importantes
 
-- O projeto contém apenas o frontend. Não implementa servidor, banco de dados ou autenticação de produção.
+- Este handoff trata do frontend (`src/`). A API REST fica em `backend/` (veja `backend/README.md`) e o banco MySQL em `db/` (veja `db/README.md`).
 - Sem `VITE_API_BASE_URL`, as telas usam dados de demonstração e as alterações não persistem entre sessões. Configurá-la habilita chamadas conforme o contrato em `docs/frontend-api-contract.md`.
 - O cliente da API envia credenciais do navegador e mantém um token bearer opcional em memória. Não persiste o token no armazenamento local.
 - As restrições de navegação administrativa são apenas comportamento de interface. O backend deve aplicar autorização independentemente.
@@ -30,7 +30,7 @@ O TrayCheck é uma aplicação React de página única, construída com TypeScri
 ## Pendências
 
 - Confirmar com a equipe que receberá o projeto quem mantém o backend, a URL de implantação, a política CORS e o provisionamento de acessos.
-- Apontar a coleção Newman (`API_BASE_URL`) para o backend real quando ele existir e confirmar com a equipe as premissas de permissão listadas em `tests/README.md`.
+- O backend real já existe em `backend/`: migrar o frontend ao contrato `docs/api/openapi.yaml` 1.2.0 (veja `docs/api/GUIA_FRONTEND.md`), apontar a coleção Newman (`API_BASE_URL`) para ele e confirmar com a equipe as premissas de permissão listadas em `tests/README.md`.
 - Revisar os requisitos de suporte a navegadores para entrada por voz antes de definir os navegadores de produção.
 - Não foram identificados marcadores TODO/FIXME nem logs de depuração no código TypeScript durante esta revisão de handoff.
 
@@ -43,4 +43,4 @@ corepack pnpm@10.34.3 --dir src install --frozen-lockfile
 corepack pnpm@10.34.3 --dir src dev
 ```
 
-O Vite fica disponível em `http://localhost:8443/`. Para validar o projeto, execute `corepack pnpm@10.34.3 --dir src build` e `corepack pnpm@10.34.3 --dir src exec tsc --noEmit`. `corepack pnpm@10.34.3 --dir src preview` serve o build de produção após a compilação. Os testes rodam com `test`, `test:coverage`, `test:api` e `test:e2e` (ver `tests/README.md`); o CI está em `.github/workflows/ci.yml`.
+O Vite fica disponível em `http://localhost:8443/`. Para validar o projeto, execute `corepack pnpm@10.34.3 --dir src build` e `corepack pnpm@10.34.3 --dir src exec tsc --noEmit`. `corepack pnpm@10.34.3 --dir src preview` serve o build de produção após a compilação. Os testes rodam com `test`, `test:coverage`, `test:api` e `test:e2e` (ver `tests/README.md`); o CI está em `.github/workflows/ci.yml`.

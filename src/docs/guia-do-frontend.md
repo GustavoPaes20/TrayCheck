@@ -2,7 +2,7 @@
 
 ## Escopo e estrutura
 
-O repositório contém a aplicação frontend React/TypeScript do TrayCheck; não contém backend, banco de dados ou autenticação de produção. A pasta `src/` do repositório é a raiz da aplicação:
+Este guia trata da aplicação frontend React/TypeScript do TrayCheck. A API REST fica em `backend/` e o banco MySQL em `db/`, na raiz do repositório. A pasta `src/` do repositório é a raiz da aplicação:
 
 | Caminho (relativo a `src/`) | Responsabilidade |
 | --- | --- |
@@ -51,7 +51,7 @@ Para habilitar as chamadas à API, crie `src/.env.local` na raiz do repositório
 VITE_API_BASE_URL=http://localhost:3000/api/v1
 ```
 
-O [contrato da API](frontend-api-contract.md) descreve rotas, métodos e formatos de request/response. O backend precisa implementar esse contrato, permitir a origem do frontend via CORS e configurar cookies quando forem usados. A autenticação, autorização, validação e persistência devem ser aplicadas no backend; controles de navegação no frontend não substituem autorização.
+O contrato oficial da API é o [docs/api/openapi.yaml](../../docs/api/openapi.yaml) (versão 1.2.0), implementado pelo backend em `backend/`. O frontend ainda segue em parte o [contrato antigo](frontend-api-contract.md); os ajustes para migrar estão em [docs/api/GUIA_FRONTEND.md](../../docs/api/GUIA_FRONTEND.md). O backend precisa permitir a origem do frontend via CORS e configurar cookies quando forem usados. A autenticação, autorização, validação e persistência devem ser aplicadas no backend; controles de navegação no frontend não substituem autorização.
 
 O frontend envia credenciais apenas ao login e senhas apenas à operação de troca de senha. Um eventual token de acesso fica em memória, sem ser gravado no armazenamento local do navegador.
 
