@@ -7,6 +7,8 @@ sobre o banco MySQL das migrações [`db/migrations`](../db/migrations).
 
 ## Como rodar
 
+> Instalando pela primeira vez no Windows? Siga [INSTALACAO_WINDOWS.md](INSTALACAO_WINDOWS.md).
+
 ```bash
 # 1. Banco (uma vez): cria e popula traycheck com dados de demonstração
 DB_NAME=traycheck ./db/aplicar.sh --seed          # na raiz do repositório
@@ -24,8 +26,48 @@ npm run dev             # http://localhost:3000/api/v1  (recarrega ao salvar)
 | `npm run typecheck` | Confere os tipos sem gerar arquivos |
 | `npm run build` | Compila `src/` para `dist/` |
 | `npm start` | Roda a versão compilada |
+| `npm run criar-admin` | Cria o primeiro administrador de um banco novo (ver "Implantação") |
+| `npm test` | Testes do backend (`test/`), num banco de teste (ver "Testes") |
 
 `GET /health` (fora do contrato) mostra se o banco responde e quais migrações estão aplicadas.
+
+## Implantação (banco sem dados de demonstração)
+
+Em produção o banco não recebe o `--seed`, então nasce sem usuários. Como só um administrador cadastra usuários
+(RF01), o primeiro é criado por script, uma única vez (critério de aceite do RF01, ERS 2.5):
+
+```bash
+DB_NAME=traycheck ./db/aplicar.sh                    # 1. migrações (na raiz do repositório, sem --seed)
+cd backend
+cp .env.example .env                                 # 2. conexão com o banco
+npm install
+npm run criar-admin -- --nome "Ana Souza" --email ana@hospital.br   # 3. primeiro administrador
+npm run dev                                          # 4. sobe a API (ou npm run build && npm start)
+```
+
+- A senha é digitada duas vezes e aparece só como `*` (mínimo de 8 caracteres). Com `--gerar-senha`, o script sorteia
+  uma senha e a mostra **uma única vez**. No banco fica só o hash bcrypt (RNF01).
+- Se já existir administrador ativo, o script avisa e não altera nada, sem chegar a pedir a senha. Os demais usuários são cadastrados pelo
+  administrador, na tela de usuários ou por `POST /users`.
+- O e-mail é gravado em minúsculas. Saída 0 = criado ou nada a fazer; 1 = dados inválidos ou erro de banco.
+- Num servidor instalado sem as dependências de desenvolvimento (sem `tsx`), use a versão compilada:
+  `npm run build` e depois `node --env-file-if-exists=.env dist/scripts/criar-admin.js --nome ... --email ...`.
+- **No Windows**, siga o passo a passo de [INSTALACAO_WINDOWS.md](INSTALACAO_WINDOWS.md): PowerShell e MySQL no
+  Docker, do zero até o login do primeiro administrador.
+
+## Testes
+
+Os testes de `test/` usam o executor nativo do Node (`node:test`, via `tsx`) e precisam de um banco **de teste**
+(nome com `teste`), com as migrações aplicadas e sem administrador. Eles apagam o que criam ao final.
+
+```bash
+DB_NAME=traycheck_teste ./db/aplicar.sh --recriar   # na raiz do repositório
+cd backend
+DB_NAME=traycheck_teste npm test
+```
+
+No PowerShell, troque a última linha por `$env:DB_NAME="traycheck_teste"; npm test`. Sem banco de teste, só os testes
+de validação rodam; os que usam o banco são pulados.
 
 ## Conectar o frontend (src/)
 
@@ -74,6 +116,8 @@ src/
   http/parametros.ts   Leitura de :id, ?active=, ?q= e formatação de datas
   dominio/             Regras e consultas reutilizadas (sessões, usuários, senhas, checagens, relatórios)
   rotas/               Um arquivo por área do contrato (autenticacao.ts, instrumentais.ts, ...)
+  scripts/criar-admin.ts  Cria o primeiro administrador na implantação (npm run criar-admin)
+test/                  Testes do backend (node:test): primeiro-admin.test.ts
 ```
 
 ## Andamento (ordem do professor)

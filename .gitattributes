@@ -1,0 +1,3 @@
+# Scripts de shell sempre com quebra de linha do Linux (LF), mesmo em clones no Windows:
+# com CRLF, o bash falha ao executar db/aplicar.sh e tests/db/executar.sh.
+*.sh text eol=lf
