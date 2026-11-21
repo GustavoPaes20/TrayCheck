@@ -2,6 +2,8 @@
 
 O TrayCheck é um sistema para conferência de kits cirúrgicos, controle de estoque e registro de divergências. O repositório tem três partes: o frontend React na pasta `src/` (com o manifesto de dependências e o lockfile), a API REST em `backend/` (Node.js, Express e TypeScript; veja [backend/README.md](backend/README.md)) e o banco MySQL em `db/` (veja [db/README.md](db/README.md)).
 
+Primeira instalação no Windows (banco, API e primeiro administrador): siga o passo a passo de [backend/INSTALACAO_WINDOWS.md](backend/INSTALACAO_WINDOWS.md).
+
 ## Requisitos
 
 - Node.js 22.22.2 ou superior (24.15+ e 26+ também são compatíveis).

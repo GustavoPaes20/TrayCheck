@@ -7,6 +7,8 @@ sobre o banco MySQL das migrações [`db/migrations`](../db/migrations).
 
 ## Como rodar
 
+> Instalando pela primeira vez no Windows? Siga [INSTALACAO_WINDOWS.md](INSTALACAO_WINDOWS.md).
+
 ```bash
 # 1. Banco (uma vez): cria e popula traycheck com dados de demonstração
 DB_NAME=traycheck ./db/aplicar.sh --seed          # na raiz do repositório
@@ -50,7 +52,8 @@ npm run dev                                          # 4. sobe a API (ou npm run
 - O e-mail é gravado em minúsculas. Saída 0 = criado ou nada a fazer; 1 = dados inválidos ou erro de banco.
 - Num servidor instalado sem as dependências de desenvolvimento (sem `tsx`), use a versão compilada:
   `npm run build` e depois `node --env-file-if-exists=.env dist/scripts/criar-admin.js --nome ... --email ...`.
-- No Windows, rode o passo 1 no Git Bash (o `aplicar.sh` é um script bash); os passos 2 a 4 funcionam no PowerShell.
+- **No Windows**, siga o passo a passo de [INSTALACAO_WINDOWS.md](INSTALACAO_WINDOWS.md): PowerShell e MySQL no
+  Docker, do zero até o login do primeiro administrador.
 
 ## Testes
 
