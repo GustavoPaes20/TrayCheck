@@ -1,6 +1,6 @@
-import { parseAlternatives, parseTranscript } from "./commandParser.js";
-import type { ChecklistItem } from "./Types.js";
-import assert from "node:assert/strict";
+import { parseAlternatives, parseTranscript } from "./commandParser.ts";
+import type { ChecklistItem } from "./Types.ts";
+import * as assert from "./testHelpers.ts";
 
 const it = (id: string, name: string, status: ChecklistItem["status"] = "pendente", expectedQty = 2): ChecklistItem => ({ id, name, expectedQty, status });
 const items = [
@@ -11,7 +11,7 @@ let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log("ok -", name); };
 
 t("comandos exatos", () => {
-  assert.deepEqual(parseTranscript("Pular", items), { type: "skip" });i
+  assert.deepEqual(parseTranscript("Pular", items), { type: "skip" });
   assert.deepEqual(parseTranscript("repetir", items), { type: "repeat" });
   assert.deepEqual(parseTranscript("Finalizar checagem", items), { type: "finish" });
 });
