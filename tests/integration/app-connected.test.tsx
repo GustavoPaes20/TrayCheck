@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AppUser, AuthUser, ChecklistReport, EquipmentItem, StockItem, SurgeryType } from '@/data/mockData';
 import { carregarModulosConectados, instalarApiFalsa, type RotaFalsa } from '../helpers/api-falsa';
-import { ReconhecimentoDeVozFalso, instalarVozFalsa } from '../helpers/voz';
+import { aguardarMicrofoneAberto, instalarVozFalsa, responderPorVoz } from '../helpers/voz';
 
 const enfermeira: AuthUser = {
   id: 'u1',
@@ -186,6 +186,7 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
       await contexto.user.click(within(linha).getByRole('button', { name: 'Conferir' }));
       await screen.findByText('Bisturi Cirúrgico');
       await contexto.user.click(screen.getByRole('button', { name: 'Ativar Microfone' }));
+      await aguardarMicrofoneAberto(); // o assistente pergunta primeiro; o microfone abre quando a pergunta termina
       return contexto;
     }
 
@@ -200,8 +201,8 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
     it('ao concluir com divergência, grava UM relatório com contagens, itens e status corretos', async () => {
       const { api, user } = await abrirConferenciaDaApendicectomia();
 
-      ReconhecimentoDeVozFalso.ultima().falar('luvas estéreis');
-      await user.click(screen.getAllByTitle('Faltando')[0]); // Bisturi Cirúrgico → faltante
+      await responderPorVoz('sim, temos'); // Luvas Estéreis → disponível
+      await responderPorVoz('não temos'); // Bisturi Cirúrgico → faltante (por voz)
       expect(await screen.findByRole('heading', { name: 'Itens Faltando!' })).toBeInTheDocument();
 
       await screen.findByText('Itens em falta:');
@@ -233,8 +234,8 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
     it('ao concluir sem divergência, grava o relatório com status "ok"', async () => {
       const { api } = await abrirConferenciaDaApendicectomia();
 
-      ReconhecimentoDeVozFalso.ultima().falar('luvas');
-      ReconhecimentoDeVozFalso.ultima().falar('bisturi');
+      await responderPorVoz('tem');
+      await responderPorVoz('temos');
 
       expect(await screen.findByRole('heading', { name: 'Kit Completo!' })).toBeInTheDocument();
       const relatorio = api.chamadasPara('POST', '/reports')[0].corpo as ChecklistReport;
@@ -244,7 +245,7 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
     it('não grava relatório enquanto a checagem não termina', async () => {
       const { api } = await abrirConferenciaDaApendicectomia();
 
-      ReconhecimentoDeVozFalso.ultima().falar('luvas');
+      await responderPorVoz('sim');
 
       expect(api.chamadasPara('POST', '/reports')).toHaveLength(0);
     });
@@ -252,8 +253,8 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
     it('avisa o usuário quando o relatório não pôde ser salvo (RNF06)', async () => {
       await abrirConferenciaDaApendicectomia({ 'POST /reports': { status: 500, corpo: { message: 'Falha no servidor.' } } });
 
-      ReconhecimentoDeVozFalso.ultima().falar('luvas');
-      ReconhecimentoDeVozFalso.ultima().falar('bisturi');
+      await responderPorVoz('sim');
+      await responderPorVoz('sim');
 
       expect(await screen.findByText('Relatório não salvo: Falha no servidor.')).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: 'Kit Completo!' })).toBeInTheDocument();

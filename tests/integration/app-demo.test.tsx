@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import App from '@/App';
 import { CONTAS_DEMONSTRACAO } from '@/data/mockData';
-import { ReconhecimentoDeVozFalso, instalarVozFalsa } from '../helpers/voz';
+import { aguardarMicrofoneAberto, instalarVozFalsa, responderPorVoz } from '../helpers/voz';
 
 const conta = (papel: 'nurse' | 'technician' | 'admin') => CONTAS_DEMONSTRACAO.find((c) => c.role === papel)!;
 
@@ -193,13 +193,9 @@ describe('App (modo demonstração) — fluxos completos', () => {
       await user.click(within(linhaDaApendicectomia).getByRole('button', { name: 'Conferir' }));
 
       await user.click(screen.getByRole('button', { name: 'Ativar Microfone' }));
-      const reconhecimento = ReconhecimentoDeVozFalso.ultima();
-      reconhecimento.falar('luvas estéreis');
-      reconhecimento.falar('bisturi');
-      reconhecimento.falar('grasper');
-      reconhecimento.falar('endoloop');
-      reconhecimento.falar('trocarte');
-      await user.click(screen.getAllByTitle('Faltando')[0]); // CO2 Medicinal não localizado: divergência
+      await aguardarMicrofoneAberto();
+      for (const resposta of ['sim, temos', 'tem', 'temos', 'confirmado', 'checado']) await responderPorVoz(resposta);
+      await responderPorVoz('não temos'); // CO2 Medicinal não localizado: divergência
 
       expect(await screen.findByRole('heading', { name: 'Itens Faltando!' })).toBeInTheDocument();
       expect(screen.getByText('CO2 Medicinal')).toBeInTheDocument();

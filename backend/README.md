@@ -96,6 +96,13 @@ Para voltar ao modo demonstração (sem backend), apague `src/.env.local`.
 - Sala e horário da programação do dia vêm das checagens do dia (não há agenda de cirurgias).
 - O cadastro de usuário não envia senha: o backend gera uma e a devolve em `initialPassword`, que a tela ainda não exibe.
 
+## Voz do assistente (ElevenLabs)
+
+`POST /api/v1/voice/speech` converte uma frase curta em áudio MP3 com a voz configurada. A chave da ElevenLabs fica
+**somente** no `backend/.env` (`ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`...; veja `.env.example`) e nunca é enviada ao
+navegador. Sem chave/voz a rota responde `503 VOZ_INDISPONIVEL` e o frontend usa a voz do navegador. Detalhes em
+[`docs/voz-do-assistente.md`](../docs/voz-do-assistente.md).
+
 ## Documentação relacionada
 
 - [`docs/api/openapi.yaml`](../docs/api/openapi.yaml) — contrato oficial (1.2.0).

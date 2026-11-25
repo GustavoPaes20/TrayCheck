@@ -16,6 +16,7 @@ import { rotasPerfil } from './rotas/perfil.js';
 import { rotasProcedimentos } from './rotas/procedimentos.js';
 import { rotasRelatorios } from './rotas/relatorios.js';
 import { rotasUsuarios } from './rotas/usuarios.js';
+import { rotasVoz } from './rotas/voz.js';
 
 /** CORS simples para o frontend (Vite) chamar a API com cookies/credenciais. */
 const cors: RequestHandler = (req, res, next) => {
@@ -85,6 +86,7 @@ export function criarApp(): Express {
   api.use(rotasUsuarios); // RF01
   api.use(rotasPerfil); // apoio: perfil
   api.use(rotasDashboard); // apoio: dashboard
+  api.use(rotasVoz); // apoio: voz do assistente (ElevenLabs)
   api.use(rotasEstoque); // apoio: estoque
   api.use(rotasInstrumentais); // RF03
   api.use(rotasKits); // RF03

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import VoiceChecklist from '@/components/VoiceChecklist';
 import { USUARIOS_DEMONSTRACAO, kitsPorCirurgia } from '@/data/mockData';
-import { ReconhecimentoDeVozFalso, instalarVozFalsa } from '../helpers/voz';
+import { ReconhecimentoDeVozFalso, aguardarFala, aguardarMicrofoneAberto, instalarVozFalsa, responderPorVoz } from '../helpers/voz';
 
 const enfermeira = USUARIOS_DEMONSTRACAO['ana.silva@hospitalcentral.br'];
 // Apendicectomia: 6 itens — Luvas Estéreis (7.0), Bisturi nº 22, Grasper Laparoscópico,
@@ -29,7 +29,7 @@ function esperarContagens({ pendentes, confirmados, faltando }: { pendentes: num
 
 async function ativarMicrofone(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Ativar Microfone' }));
-  return ReconhecimentoDeVozFalso.ultima();
+  return aguardarMicrofoneAberto(); // o microfone só abre depois que o assistente termina de perguntar
 }
 
 describe('VoiceChecklist — conferência por voz', () => {
@@ -156,7 +156,7 @@ describe('VoiceChecklist — conferência por voz', () => {
 
       esperarContagens({ pendentes: 5, confirmados: 0, faltando: 1 });
       expect(screen.getByText(/FALTANDO: Luvas Estéreis \(7\.0\)/)).toBeInTheDocument();
-      expect(voz.falas).toContain('Item pulado: Luvas Estéreis (7.0). Marcado como faltando.');
+      expect(voz.falas).toContain('Item pulado: Luvas Estéreis 7,0. Marcado como faltando. Próximo: Bisturi número 22.');
     });
 
     it('"Pular" avança pelos itens na ordem do kit', async () => {
@@ -174,7 +174,7 @@ describe('VoiceChecklist — conferência por voz', () => {
 
       await user.click(screen.getByRole('button', { name: 'Repetir' }));
 
-      expect(voz.falas).toContain('Luvas Estéreis (7.0). 3 pares.');
+      expect(voz.falas).toContain('Luvas Estéreis 7,0, 3 pares.');
     });
 
     it('"Pular" e "Repetir" continuam habilitados enquanto houver item pendente', async () => {
@@ -195,170 +195,285 @@ describe('VoiceChecklist — conferência por voz', () => {
 
       await user.click(screen.getByRole('button', { name: 'Repetir' }));
 
-      expect(voz.falas).toContain('Bisturi nº 22. 1 unid.');
+      expect(voz.falas).toContain('Bisturi número 22, 1 unidade.');
     });
   });
 
-  describe('reconhecimento de voz (RF06, RF07, RNF03, RNF07)', () => {
-    it('avisa e não inicia quando o navegador não suporta reconhecimento de voz', async () => {
+  describe('diálogo por voz: anunciar → ouvir → registrar (RF06, RF07, RNF03, RNF07)', () => {
+    it('avisa na tela e não inicia quando o navegador não suporta reconhecimento de voz', async () => {
       vi.stubGlobal('SpeechRecognition', undefined);
       vi.stubGlobal('webkitSpeechRecognition', undefined);
-      const alerta = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
       const { user } = renderizar();
 
       await user.click(screen.getByRole('button', { name: 'Ativar Microfone' }));
 
-      expect(alerta).toHaveBeenCalledWith(expect.stringContaining('nao suportado'));
+      expect(await screen.findByRole('alert')).toHaveTextContent(/não suportado neste navegador/);
       expect(ReconhecimentoDeVozFalso.instancias).toHaveLength(0);
-      expect(screen.getByText('Microfone inativo')).toBeInTheDocument();
+      expect(screen.getByText('Microfone indisponível')).toBeInTheDocument();
     });
 
-    it('ativa o microfone em pt-BR, em modo contínuo, e anuncia o primeiro item', async () => {
+    it('sem microfone (ou permissão negada) a conferência continua e pode ser concluída só por toque', async () => {
+      vi.stubGlobal('SpeechRecognition', undefined);
+      vi.stubGlobal('webkitSpeechRecognition', undefined);
+      const { user } = renderizar();
+      await user.click(screen.getByRole('button', { name: 'Ativar Microfone' }));
+      await screen.findByRole('alert');
+
+      expect(screen.getByRole('button', { name: 'Finalizar' })).toBeEnabled();
+      for (let i = 0; i < itensDaApendicectomia.length; i++) await user.click(screen.getAllByTitle('Confirmar')[0]);
+
+      expect(await screen.findByRole('heading', { name: 'Kit Completo!' })).toBeInTheDocument();
+    });
+
+    it('anuncia o primeiro item com a pergunta e só então abre o microfone (pt-BR, uma resposta por vez)', async () => {
       const { user } = renderizar();
 
       const reconhecimento = await ativarMicrofone(user);
+
+      expect(voz.falas[0]).toBe('Iniciando conferência de Apendicectomia. Primeiro item: Luvas Estéreis 7,0, 3 pares. Está disponível?');
+      expect(reconhecimento.lang).toBe('pt-BR');
+      expect(reconhecimento.continuous).toBe(false);
+      expect(reconhecimento.interimResults).toBe(false);
+      expect(screen.getAllByText('Ouvindo...').length).toBeGreaterThan(0);
+    });
+
+    it('o microfone NÃO abre enquanto o assistente está falando; abre quando a fala termina', async () => {
+      voz.segurarFala();
+      const { user } = renderizar();
+
+      await user.click(screen.getByRole('button', { name: 'Ativar Microfone' }));
+      await aguardarFala(voz.falas, 'Primeiro item');
+
+      expect(screen.getByText('Assistente falando...')).toBeInTheDocument();
+      expect(ReconhecimentoDeVozFalso.aberturas).toBe(0);
+
+      voz.terminarFala();
+      const reconhecimento = await aguardarMicrofoneAberto();
 
       expect(reconhecimento.iniciado).toBe(true);
-      expect(reconhecimento.lang).toBe('pt-BR');
-      expect(reconhecimento.continuous).toBe(true);
-      expect(reconhecimento.interimResults).toBe(true);
-      expect(screen.getByText('Dite o nome do equipamento')).toBeInTheDocument();
-      expect(voz.falas).toContain('Iniciando conferência de Apendicectomia. Primeiro item: Luvas Estéreis (7.0).');
+      expect(screen.getAllByText('Ouvindo...').length).toBeGreaterThan(0);
     });
 
-    it('confirma o item citado e responde por voz', async () => {
+    it('"Sim, temos" confirma o item atual, o assistente confirma por voz e anuncia o próximo', async () => {
       const { user } = renderizar();
-      const reconhecimento = await ativarMicrofone(user);
+      await ativarMicrofone(user);
 
-      reconhecimento.falar('grasper laparoscópico');
+      await responderPorVoz('Sim, temos');
 
+      await aguardarFala(voz.falas, 'Bisturi número 22, 1 unidade. Está disponível?');
       esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
-      expect(voz.falas).toContain('Grasper Laparoscópico. Confirmado.');
+      expect(voz.falas).toContain('Conferido.');
       expect(screen.getByText('Detectado:')).toBeInTheDocument();
+      expect(screen.getAllByText('→ disponível').length).toBeGreaterThan(0);
     });
 
-    it('ignora acentos, maiúsculas e pontuação ao comparar', async () => {
+    it('"Não temos" registra o item como faltante e o diálogo segue para o próximo', async () => {
       const { user } = renderizar();
-      const reconhecimento = await ativarMicrofone(user);
+      await ativarMicrofone(user);
 
-      reconhecimento.falar('ENDOLOOP, cirurgico!');
+      await responderPorVoz('Não temos');
 
+      await aguardarFala(voz.falas, 'Bisturi número 22, 1 unidade. Está disponível?');
+      esperarContagens({ pendentes: 5, confirmados: 0, faltando: 1 });
+      expect(screen.getByText(/FALTANDO: Luvas Estéreis \(7\.0\)/)).toBeInTheDocument();
+      expect(voz.falas).toContain('Registrado como faltante.');
+    });
+
+    it.each(['Não tem', 'Falta', 'Está faltando', 'Indisponível', 'Negativo', 'Nada'])('"%s" registra como faltante', async (resposta) => {
+      const { user } = renderizar();
+      await ativarMicrofone(user);
+
+      await responderPorVoz(resposta);
+
+      await aguardarFala(voz.falas, 'Registrado como faltante.');
+      esperarContagens({ pendentes: 5, confirmados: 0, faltando: 1 });
+    });
+
+    it.each(['Tem', 'Temos', 'Luvas, temos', 'Checado', 'Check', 'Certo', 'Afirmativo', 'Confirmado'])('"%s" confirma o item', async (resposta) => {
+      const { user } = renderizar();
+      await ativarMicrofone(user);
+
+      await responderPorVoz(resposta);
+
+      await aguardarFala(voz.falas, 'Conferido.');
       esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
-      expect(voz.falas).toContain('Endoloop Cirúrgico. Confirmado.');
     });
 
-    it('reconhece o item por parte do nome (ex.: só "bisturi")', async () => {
+    it('palavra positiva dentro de frase negativa nunca confirma ("não temos, só tem a tesoura")', async () => {
       const { user } = renderizar();
-      const reconhecimento = await ativarMicrofone(user);
+      await ativarMicrofone(user);
 
-      reconhecimento.falar('bisturi');
+      await responderPorVoz('não temos, só tem a tesoura');
 
-      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
+      await aguardarFala(voz.falas, 'Registrado como faltante.');
+      esperarContagens({ pendentes: 5, confirmados: 0, faltando: 1 });
     });
 
-    it('não confirma nada quando a fala não corresponde a nenhum item', async () => {
+    it('resposta inconclusiva ("Acho que sim") NÃO registra: o assistente pede confirmação clara', async () => {
       const { user } = renderizar();
-      const reconhecimento = await ativarMicrofone(user);
+      await ativarMicrofone(user);
 
-      reconhecimento.falar('bom dia a todos');
+      await responderPorVoz('Acho que sim');
 
+      await aguardarFala(voz.falas, 'Não consegui confirmar. Luvas Estéreis 7,0 está disponível?');
       esperarContagens({ pendentes: 6, confirmados: 0, faltando: 0 });
-      expect(voz.falas.some((fala) => fala.includes('Confirmado'))).toBe(false);
+      expect(screen.getAllByText('→ não confirmado').length).toBeGreaterThan(0);
+
+      await responderPorVoz('Sim');
+      await aguardarFala(voz.falas, 'Conferido.');
+      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
     });
 
-    it('transcrições parciais aparecem na tela, mas só as finais confirmam itens', async () => {
+    it('falar o nome de OUTRO item não confirma o item atual', async () => {
       const { user } = renderizar();
-      const reconhecimento = await ativarMicrofone(user);
+      await ativarMicrofone(user);
 
-      reconhecimento.falar('grasper lapa', false);
+      await responderPorVoz('bisturi');
 
-      expect(screen.getByText('"grasper lapa"')).toBeInTheDocument();
+      await aguardarFala(voz.falas, 'Não consegui confirmar.');
       esperarContagens({ pendentes: 6, confirmados: 0, faltando: 0 });
     });
 
-    it('um item já confirmado não é confirmado de novo', async () => {
+    it('conversa fora do assunto não confirma nada', async () => {
+      const { user } = renderizar();
+      await ativarMicrofone(user);
+
+      await responderPorVoz('bom dia a todos');
+
+      await aguardarFala(voz.falas, 'Não consegui confirmar.');
+      esperarContagens({ pendentes: 6, confirmados: 0, faltando: 0 });
+      expect(voz.falas).not.toContain('Conferido.');
+    });
+
+    it('sem resposta (silêncio): o assistente pergunta de novo e não registra nada', async () => {
       const { user } = renderizar();
       const reconhecimento = await ativarMicrofone(user);
 
-      reconhecimento.falar('grasper');
-      reconhecimento.falar('grasper');
+      reconhecimento.encerrarSemFala();
 
-      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
-      expect(voz.falas.filter((fala) => fala.includes('Grasper Laparoscópico. Confirmado.'))).toHaveLength(1);
+      await aguardarFala(voz.falas, 'Não ouvi a resposta. Luvas Estéreis 7,0 está disponível?');
+      esperarContagens({ pendentes: 6, confirmados: 0, faltando: 0 });
     });
 
-    it('"Pausar Microfone" interrompe o reconhecimento', async () => {
+    it('resposta duplicada do reconhecedor na mesma escuta confirma UM item só', async () => {
+      const { user } = renderizar();
+      const reconhecimento = await ativarMicrofone(user);
+
+      reconhecimento.falar('sim');
+      reconhecimento.falar('sim');
+      reconhecimento.falar('sim');
+
+      await aguardarFala(voz.falas, 'Bisturi número 22');
+      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
+    });
+
+    it('o eco da própria pergunta ("…está disponível?") é ignorado e não confirma o item', async () => {
+      const { user } = renderizar();
+      const reconhecimento = await ativarMicrofone(user);
+
+      reconhecimento.falar('Luvas Estéreis 7,0, 3 pares. Está disponível?'); // o microfone "ouviu" o assistente
+
+      const novaEscuta = await vi.waitFor(() => {
+        expect(ReconhecimentoDeVozFalso.ultima()).not.toBe(reconhecimento);
+        return ReconhecimentoDeVozFalso.ultima();
+      });
+      esperarContagens({ pendentes: 6, confirmados: 0, faltando: 0 });
+      expect(voz.falas.filter((fala) => fala.includes('Está disponível?'))).toHaveLength(1); // não perguntou de novo
+      expect(novaEscuta.iniciado).toBe(true);
+    });
+
+    it('baixa confiança do reconhecedor numa resposta positiva não confirma', async () => {
+      const { user } = renderizar();
+      await ativarMicrofone(user);
+
+      await responderPorVoz('sim', 0.3);
+
+      await aguardarFala(voz.falas, 'Não consegui confirmar.');
+      esperarContagens({ pendentes: 6, confirmados: 0, faltando: 0 });
+    });
+
+    it('três respostas ruins seguidas pausam o assistente sem registrar nada e orientam o uso dos botões', async () => {
+      const { user } = renderizar();
+      await ativarMicrofone(user);
+
+      await responderPorVoz('talvez');
+      await responderPorVoz('hum');
+      await responderPorVoz('não sei');
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/Use os botões na tela/);
+      expect(screen.getByText('Assistente pausado')).toBeInTheDocument();
+      esperarContagens({ pendentes: 6, confirmados: 0, faltando: 0 });
+    });
+
+    it('"Pausar Microfone" fecha o microfone na hora e interrompe o diálogo', async () => {
       const { user } = renderizar();
       const reconhecimento = await ativarMicrofone(user);
 
       await user.click(screen.getByRole('button', { name: 'Pausar Microfone' }));
 
       expect(reconhecimento.iniciado).toBe(false);
-      expect(screen.getByText('Microfone inativo')).toBeInTheDocument();
+      expect(screen.getByText('Assistente pausado')).toBeInTheDocument();
       expect(voz.falas).toContain('Microfone pausado.');
     });
 
-    it('um erro do reconhecimento desativa o microfone sem perder os itens já conferidos', async () => {
-      const { user } = renderizar();
-      const reconhecimento = await ativarMicrofone(user);
-      reconhecimento.falar('grasper');
-
-      reconhecimento.falharComErro();
-
-      expect(await screen.findByText('Microfone inativo')).toBeInTheDocument();
-      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
-    });
-
-    it('silêncio ou falha passageira (no-speech) não desliga o microfone', async () => {
+    it('resposta que chega depois de pausar é descartada', async () => {
       const { user } = renderizar();
       const reconhecimento = await ativarMicrofone(user);
 
-      reconhecimento.falharComErro('no-speech');
-      act(() => reconhecimento.onend?.());
+      await user.click(screen.getByRole('button', { name: 'Pausar Microfone' }));
+      reconhecimento.falar('sim');
 
-      expect(screen.queryByText('Microfone inativo')).not.toBeInTheDocument();
-      expect(reconhecimento.iniciado).toBe(true);
-      reconhecimento.falar('grasper');
-      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
-    });
-
-    it('quando o navegador encerra a escuta sozinho, ela é religada', async () => {
-      const { user } = renderizar();
-      const reconhecimento = await ativarMicrofone(user);
-
-      reconhecimento.stop();
-      act(() => reconhecimento.onend?.());
-
-      expect(reconhecimento.iniciado).toBe(true);
-    });
-
-    it('não ouve a própria voz: o microfone fica pausado enquanto o sistema fala', async () => {
-      voz.controle.segurarFalas = true;
-      const { user } = renderizar();
-      const reconhecimento = await ativarMicrofone(user);
-
-      // "Iniciando conferência... Primeiro item: ..." ainda está sendo falado
-      expect(reconhecimento.iniciado).toBe(false);
-      reconhecimento.falar(itensDaApendicectomia[0].name);
       esperarContagens({ pendentes: 6, confirmados: 0, faltando: 0 });
+    });
 
-      voz.terminarFala();
-      expect(reconhecimento.iniciado).toBe(true);
-      reconhecimento.falar(itensDaApendicectomia[0].name);
+    it('permissão do microfone negada: mostra mensagem clara e mantém os itens já conferidos', async () => {
+      const { user } = renderizar();
+      await user.click(screen.getAllByTitle('Confirmar')[0]); // item já conferido por toque
+      const reconhecimento = await ativarMicrofone(user);
+
+      reconhecimento.falharComErro('not-allowed');
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/acesso ao microfone foi negado/);
+      expect(screen.getByText('Microfone indisponível')).toBeInTheDocument();
       esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
     });
 
-    it('confirmar todos os itens por voz conclui a conferência', async () => {
+    it('permissão negada ANTES de começar (getUserMedia) não inicia o diálogo', async () => {
+      vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn().mockRejectedValue(Object.assign(new Error('x'), { name: 'NotAllowedError' })) } });
       const { user } = renderizar();
-      const reconhecimento = await ativarMicrofone(user);
 
-      for (const item of itensDaApendicectomia) reconhecimento.falar(item.name);
+      await user.click(screen.getByRole('button', { name: 'Ativar Microfone' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/acesso ao microfone foi negado/);
+      expect(ReconhecimentoDeVozFalso.instancias).toHaveLength(0);
+      expect(voz.falas).toHaveLength(0);
+    });
+
+    it('ação manual durante a conversa descarta o turno atual e anuncia o item pendente certo', async () => {
+      const { user } = renderizar();
+      const primeiraEscuta = await ativarMicrofone(user);
+
+      await user.click(screen.getAllByTitle('Confirmar')[0]); // toque confirma "Luvas" enquanto o assistente ouvia
+
+      await aguardarFala(voz.falas, 'Bisturi número 22, 1 unidade. Está disponível?');
+      expect(primeiraEscuta.iniciado).toBe(false);
+      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
+      primeiraEscuta.falar('sim'); // resposta do turno antigo chegando tarde
+      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
+    });
+
+    it('responder todos os itens por voz conclui a conferência', async () => {
+      const { user } = renderizar();
+      await ativarMicrofone(user);
+
+      for (let i = 0; i < itensDaApendicectomia.length; i++) await responderPorVoz('sim, temos');
 
       expect(await screen.findByRole('heading', { name: 'Kit Completo!' })).toBeInTheDocument();
       expect(screen.getByText(/Todos os 6 itens foram confirmados/)).toBeInTheDocument();
+      await aguardarFala(voz.falas, 'Conferência concluída.');
     });
 
-    it('"Modo Demo" fica desabilitado enquanto o microfone está ouvindo', async () => {
+    it('"Modo Demo" fica desabilitado enquanto o assistente conversa', async () => {
       const { user } = renderizar();
       await ativarMicrofone(user);
 
@@ -419,7 +534,7 @@ describe('VoiceChecklist — conferência por voz', () => {
     it('"Reiniciar" (ícone do topo) limpa o progresso da conferência', async () => {
       const { user } = renderizar();
       const reconhecimento = await ativarMicrofone(user);
-      reconhecimento.falar('grasper');
+      await responderPorVoz('sim');
 
       await user.click(screen.getByTitle('Reiniciar'));
 
@@ -431,7 +546,7 @@ describe('VoiceChecklist — conferência por voz', () => {
       const { user } = renderizar();
       const reconhecimento = await ativarMicrofone(user);
       await user.click(screen.getByRole('button', { name: 'Pular' })); // Luvas → faltante
-      reconhecimento.falar('grasper');
+      await responderPorVoz('sim'); // Bisturi → disponível
 
       await user.click(screen.getByRole('button', { name: 'Finalizar' }));
 
