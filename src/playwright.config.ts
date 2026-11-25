@@ -39,7 +39,12 @@ export default defineConfig({
     timezoneId: 'America/Sao_Paulo',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    launchOptions: { executablePath: executavelDoNavegador },
+    // Microfone FALSO do Chromium (sem janela de permissão): a conferência por voz pede o microfone ao começar.
+    permissions: ['microphone'],
+    launchOptions: {
+      executablePath: executavelDoNavegador,
+      args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+    },
   },
   projects: [
     {

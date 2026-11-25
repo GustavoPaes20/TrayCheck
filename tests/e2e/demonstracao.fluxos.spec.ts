@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CONTAS, abrirConferencia, contador, entrar, falar, falasDoApp, instalarVozFalsa, irPara, menuLateral, tituloDaTela } from './apoio';
+import { CONTAS, abrirConferencia, contador, entrar, eventosDeVoz, falar, falasDoApp, instalarVozFalsa, irPara, menuLateral, microfoneAberto, segurarFala, sobreposicoesDeVoz, terminarFala, tituloDaTela } from './apoio';
 
 /** Fluxos de ponta a ponta no modo de demonstração (sem backend). Mapeados ao plano de QA e aos RF/RN do documento de requisitos. */
 
@@ -48,11 +48,11 @@ test.describe('Conferência por voz de um kit (RF06, RF07, RF09, RNF07)', () => 
     await page.getByRole('button', { name: 'Ativar Microfone' }).click();
     await expect(page.getByRole('button', { name: 'Pausar Microfone' })).toBeVisible();
 
-    // Confirma por voz.
-    await falar(page, 'bisturi');
+    // O assistente pergunta; o operador responde por voz.
+    await falar(page, 'sim, temos');
     await expect(contador(page, 'OK')).toHaveText('1');
     await expect(contador(page, 'Pend.')).toHaveText('5');
-    expect(await falasDoApp(page)).toContainEqual(expect.stringMatching(/Confirmado/)); // retorno sonoro (RNF07)
+    expect(await falasDoApp(page)).toContainEqual('Conferido.'); // retorno sonoro (RNF07)
 
     // Confirma o próximo por toque (fallback manual, RNF02).
     await page.getByTitle('Confirmar').first().click();
@@ -71,20 +71,45 @@ test.describe('Conferência por voz de um kit (RF06, RF07, RF09, RNF07)', () => 
     await expect(page.getByText('5 itens OK')).toBeVisible();
   });
 
-  test('confirmar todos os itens por voz conclui com "Kit Completo!"', async ({ page }) => {
+  test('responder "sim" a cada pergunta conclui com "Kit Completo!"', async ({ page }) => {
     await abrirConferencia(page, 'Apendicectomia');
     await page.getByRole('button', { name: 'Ativar Microfone' }).click();
 
-    // O operador diz o nome completo do item (o reconhecimento ignora palavras com 3 letras ou menos, como "CO2").
-    for (const frase of ['luvas estéreis', 'bisturi', 'grasper laparoscópico', 'endoloop', 'trocarte', 'co2 medicinal']) {
-      await falar(page, frase);
+    for (const resposta of ['sim', 'tem', 'temos', 'confirmado', 'checado', 'certo']) {
+      await falar(page, resposta);
     }
 
     await expect(page.getByRole('heading', { name: 'Kit Completo!' })).toBeVisible();
     await expect(page.getByText('Todos os 6 itens foram confirmados.')).toBeVisible();
+    expect(await sobreposicoesDeVoz(page)).toBe(0);
   });
 
-  test('uma frase que não corresponde a nenhum item não altera a conferência', async ({ page }) => {
+  test('"Não temos" registra o item como faltante e a conferência segue para o próximo', async ({ page }) => {
+    await abrirConferencia(page, 'Apendicectomia');
+    await page.getByRole('button', { name: 'Ativar Microfone' }).click();
+
+    await falar(page, 'Não temos');
+
+    await expect(contador(page, 'Falta')).toHaveText('1');
+    await expect(contador(page, 'OK')).toHaveText('0');
+    await expect.poll(() => falasDoApp(page)).toContainEqual('Bisturi número 22, 1 unidade. Está disponível?');
+  });
+
+  test('uma resposta inconclusiva ("acho que sim") não registra nada e pede confirmação clara', async ({ page }) => {
+    await abrirConferencia(page, 'Apendicectomia');
+    await page.getByRole('button', { name: 'Ativar Microfone' }).click();
+
+    await falar(page, 'acho que sim');
+
+    await expect.poll(() => falasDoApp(page)).toContainEqual('Não consegui confirmar. Luvas Estéreis 7,0 está disponível?');
+    await expect(contador(page, 'OK')).toHaveText('0');
+    await expect(contador(page, 'Pend.')).toHaveText('6');
+
+    await falar(page, 'sim');
+    await expect(contador(page, 'OK')).toHaveText('1');
+  });
+
+  test('uma frase fora do assunto não altera a conferência', async ({ page }) => {
     await abrirConferencia(page, 'Apendicectomia');
     await page.getByRole('button', { name: 'Ativar Microfone' }).click();
 
@@ -92,6 +117,23 @@ test.describe('Conferência por voz de um kit (RF06, RF07, RF09, RNF07)', () => 
 
     await expect(contador(page, 'OK')).toHaveText('0');
     await expect(contador(page, 'Pend.')).toHaveText('6');
+  });
+
+  test('o microfone só abre depois que o assistente termina de falar (sem captar a própria voz)', async ({ page }) => {
+    await segurarFala(page);
+    await abrirConferencia(page, 'Apendicectomia');
+    await page.getByRole('button', { name: 'Ativar Microfone' }).click();
+
+    await expect.poll(() => falasDoApp(page)).toContainEqual(expect.stringContaining('Está disponível?'));
+    await page.waitForTimeout(800); // bem mais que a pausa de segurança: ainda falando, o microfone segue fechado
+    expect(await microfoneAberto(page)).toBe(false);
+    expect(await eventosDeVoz(page)).not.toContain('mic:abre');
+
+    await terminarFala(page);
+    await expect.poll(() => microfoneAberto(page)).toBe(true);
+    const eventos = await eventosDeVoz(page);
+    expect(eventos.indexOf('fala:fim')).toBeLessThan(eventos.indexOf('mic:abre'));
+    expect(await sobreposicoesDeVoz(page)).toBe(0);
   });
 
   test('"Reiniciar" devolve todos os itens a pendente', async ({ page }) => {

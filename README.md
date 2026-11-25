@@ -8,7 +8,7 @@ Primeira instalação no Windows (banco, API e primeiro administrador): siga o p
 
 - Node.js 22.22.2 ou superior (24.15+ e 26+ também são compatíveis).
 - Corepack, incluído nas distribuições oficiais do Node.js, para disponibilizar a versão de pnpm fixada pelo projeto.
-- Navegador moderno. A conferência por voz depende do suporte à Web Speech API.
+- Navegador moderno. A conferência por voz depende do suporte à Web Speech API. Como a voz do assistente e o diálogo funcionam (e como configurar a ElevenLabs): [docs/voz-do-assistente.md](docs/voz-do-assistente.md).
 
 ## Executar localmente
 

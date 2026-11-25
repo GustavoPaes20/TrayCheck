@@ -18,7 +18,7 @@ export class ApiError extends Error {
   }
 }
 
-async function fazerRequisicao<T>(caminho: string, configuracao: RequestInit = {}): Promise<T> {
+async function enviarRequisicao(caminho: string, configuracao: RequestInit = {}): Promise<Response> {
   const cabecalhos = new Headers(configuracao.headers);
   if (configuracao.body && !cabecalhos.has('Content-Type')) {
     cabecalhos.set('Content-Type', 'application/json');
@@ -36,6 +36,11 @@ async function fazerRequisicao<T>(caminho: string, configuracao: RequestInit = {
     throw new ApiError(corpo?.message || `Falha na requisição (${resposta.status}).`, resposta.status);
   }
 
+  return resposta;
+}
+
+async function fazerRequisicao<T>(caminho: string, configuracao: RequestInit = {}): Promise<T> {
+  const resposta = await enviarRequisicao(caminho, configuracao);
   if (resposta.status === 204) return undefined as T;
   return resposta.json() as Promise<T>;
 }
@@ -105,6 +110,13 @@ export const clienteApi = {
     update: (idItem: string, itemEstoque: StockInput) => fazerRequisicao<StockItem>(`/stock/${encodeURIComponent(idItem)}`, { method: 'PUT', body: serializarParaJson(itemEstoque) }),
     remove: (idItem: string) => fazerRequisicao<void>(`/stock/${encodeURIComponent(idItem)}`, { method: 'DELETE' }),
     adjust: (idItem: string, variacao: number) => fazerRequisicao<StockItem>(`/stock/${encodeURIComponent(idItem)}/adjustments`, { method: 'POST', body: serializarParaJson({ delta: variacao }) }),
+  },
+  voice: {
+    /** Áudio (MP3) da frase na voz do assistente. A chave da ElevenLabs fica só no backend. */
+    speak: async (texto: string, sinal?: AbortSignal): Promise<Blob> => {
+      const resposta = await enviarRequisicao('/voice/speech', { method: 'POST', body: serializarParaJson({ text: texto }), signal: sinal });
+      return resposta.blob();
+    },
   },
   reports: {
     list: () => fazerRequisicao<ChecklistReport[]>('/reports'),

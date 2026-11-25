@@ -96,6 +96,8 @@ tags:
     description: Gestão de usuários pelo administrador (RF01, RN05)
   - name: Perfil
     description: Dados e preferências do usuário logado
+  - name: Voz
+    description: Voz do assistente da conferência (síntese de fala ElevenLabs, via backend)
   - name: Dashboard
     description: Resumo da tela inicial
   - name: Instrumentais
@@ -500,6 +502,73 @@ paths:
       x-roles: [admin, nurse, technician]
       description: |
         **Perfis permitidos:** qualquer usuário autenticado.
+  /voice/speech:
+    post:
+      tags: [Voz]
+      summary: Sintetiza uma frase na voz do assistente (ElevenLabs)
+      description: |
+        **Perfis permitidos:** qualquer usuário autenticado.
+
+        Converte um texto curto em áudio MP3 com a voz configurada no servidor. A chave da ElevenLabs existe **somente** em variável de ambiente do backend e nunca é enviada ao navegador.
+
+        Respostas iguais são servidas de um cache do servidor (não geram nova chamada paga). Há limite de requisições por usuário. Se a ElevenLabs não estiver configurada ou falhar, responde 503 `VOZ_INDISPONIVEL` e o frontend usa a voz do navegador como alternativa.
+      operationId: synthesizeSpeech
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              additionalProperties: false
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                  description: Frase a ser falada (até 300 caracteres).
+            example:
+              text: "Primeiro item: Pinça Kelly. Está disponível?"
+      responses:
+        '200':
+          description: Áudio MP3 da frase.
+          headers:
+            X-Cache:
+              description: HIT quando veio do cache do servidor.
+              schema:
+                type: string
+                enum: [HIT, MISS]
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Muitas requisições de voz em pouco tempo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Muitas solicitações de voz. Aguarde alguns segundos.
+                code: LIMITE_DE_VOZ
+        '503':
+          description: Voz indisponível (ElevenLabs não configurada ou fora do ar). O frontend usa a voz do navegador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: A voz do assistente está indisponível no momento.
+                code: VOZ_INDISPONIVEL
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-roles: [admin, nurse, technician]
+
   /dashboard:
     get:
       tags: [Dashboard]

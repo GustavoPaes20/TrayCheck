@@ -20,6 +20,14 @@ function numero(nome: string, padrao: number): number {
   return valor;
 }
 
+function decimal(nome: string, padrao: number): number {
+  const bruto = process.env[nome];
+  if (bruto === undefined || bruto === '') return padrao;
+  const valor = Number(bruto);
+  if (!Number.isFinite(valor) || valor < 0) throw new Error(`Variável ${nome} deve ser um número: "${bruto}"`);
+  return valor;
+}
+
 export const config = {
   porta: numero('PORT', 3000),
   ambiente: texto('NODE_ENV', 'development'),
@@ -34,6 +42,20 @@ export const config = {
   nomeDoCookie: 'traycheck_session',
   // Sem coluna no banco (AuthUser.hospital): valor de configuração.
   hospital: texto('HOSPITAL_NOME', 'Hospital Central'),
+  // Voz do assistente (ElevenLabs). A chave só existe aqui, no servidor — nunca vai ao frontend.
+  // Sem chave/voz configuradas a rota responde 503 e o frontend usa a voz do navegador.
+  voz: {
+    chaveApi: texto('ELEVENLABS_API_KEY', ''),
+    idDaVoz: texto('ELEVENLABS_VOICE_ID', ''),
+    idDoModelo: texto('ELEVENLABS_MODEL_ID', 'eleven_multilingual_v2'),
+    estabilidade: decimal('ELEVENLABS_STABILITY', 0.65),
+    similaridade: decimal('ELEVENLABS_SIMILARITY', 0.8),
+    estilo: decimal('ELEVENLABS_STYLE', 0),
+    velocidade: decimal('ELEVENLABS_SPEED', 0.95),
+    tempoLimiteMs: numero('ELEVENLABS_TIMEOUT_MS', 15000),
+    limiteCacheItens: numero('VOZ_CACHE_ITENS', 200),
+    limitePorMinuto: numero('VOZ_LIMITE_POR_MINUTO', 60),
+  },
   banco: {
     host: texto('DB_HOST', '127.0.0.1'),
     porta: numero('DB_PORT', 3306),

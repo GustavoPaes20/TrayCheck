@@ -40,26 +40,46 @@ export async function abrirConferencia(page: Page, cirurgia: string) {
  * Web Speech API falsa para o navegador. O microfone real não é automatizável (ver plano de QA, "mock de voz");
  * o teste de taxa de reconhecimento de voz (RNF03) continua sendo um roteiro manual.
  * Deve ser chamada ANTES de `page.goto`.
+ *
+ * Imita o comportamento do navegador que importa para o diálogo:
+ *  - o app abre UMA escuta (nova instância + start) a cada pergunta e a fecha (abort) ao receber a resposta;
+ *  - a síntese "termina" (onend) logo depois de falar — ou só quando o teste mandar, com `segurarFala()`;
+ *  - o registro `eventos` guarda a ordem fala/microfone para provar que nunca se sobrepõem.
  */
 export async function instalarVozFalsa(page: Page) {
   await page.addInitScript(() => {
-    type Resultado = Array<{ transcript: string }> & { isFinal: boolean };
+    type Resultado = Array<{ transcript: string; confidence: number }> & { isFinal: boolean };
     const w = window as unknown as Record<string, unknown>;
-    const instancias: Array<{ onresult: ((e: { results: Resultado[] }) => void) | null }> = [];
     const falas: string[] = [];
+    const eventos: string[] = [];
+    let falando = false;
+    let segurando = false;
+    let pendentes: Array<{ onend: (() => void) | null }> = [];
+    let sobreposicoes = 0;
+    let atual: ReconhecimentoFalso | null = null;
 
     class ReconhecimentoFalso {
-      onresult: ((e: { results: Resultado[] }) => void) | null = null;
-      onerror: (() => void) | null = null;
+      onresult: ((e: { resultIndex: number; results: Resultado[] }) => void) | null = null;
+      onerror: ((e: { error: string }) => void) | null = null;
       onend: (() => void) | null = null;
       lang = '';
       continuous = false;
       interimResults = false;
-      constructor() {
-        instancias.push(this);
+      maxAlternatives = 1;
+      iniciado = false;
+      start() {
+        if (falando) sobreposicoes++; // o microfone abriu enquanto o assistente falava
+        this.iniciado = true;
+        atual = this;
+        eventos.push('mic:abre');
       }
-      start() {}
-      stop() {}
+      stop() { this.fechar(); }
+      abort() { this.fechar(); }
+      private fechar() {
+        if (this.iniciado) eventos.push('mic:fecha');
+        this.iniciado = false;
+        if (atual === this) atual = null;
+      }
     }
 
     w.SpeechRecognition = ReconhecimentoFalso;
@@ -67,32 +87,65 @@ export async function instalarVozFalsa(page: Page) {
     w.SpeechSynthesisUtterance = class {
       lang = '';
       rate = 1;
+      pitch = 1;
+      voice = null;
+      onend: (() => void) | null = null;
+      onerror: (() => void) | null = null;
       constructor(public text: string) {}
     };
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
       value: {
-        cancel() {},
-        speak: (e: { text: string; onend?: (() => void) | null }) => {
+        getVoices: () => [],
+        cancel() { pendentes = []; falando = false; },
+        speak(e: { text: string; onend: (() => void) | null }) {
           falas.push(e.text);
-          e.onend?.(); // o navegador avisa que terminou de falar
+          eventos.push(`fala:${e.text}`);
+          falando = true;
+          const terminar = () => { falando = false; eventos.push('fala:fim'); e.onend?.(); };
+          if (segurando) pendentes.push({ onend: terminar });
+          else setTimeout(terminar, 0);
         },
       },
     });
     w.__voz = {
-      /** Entrega uma transcrição final ao reconhecimento mais recente. */
-      falar(texto: string) {
-        const reconhecimento = instancias.at(-1);
-        if (!reconhecimento?.onresult) throw new Error('O microfone ainda não foi ativado.');
-        reconhecimento.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: texto }], { isFinal: true }) as Resultado] } as never);
+      /** Espera o microfone ABRIR (o app só o abre depois da pergunta) e entrega a transcrição final. */
+      async falar(texto: string) {
+        const limite = Date.now() + 8000;
+        while (!(atual && atual.iniciado)) {
+          if (Date.now() > limite) throw new Error('O microfone não foi aberto pelo assistente.');
+          await new Promise((r) => setTimeout(r, 20));
+        }
+        const resultado = Object.assign([{ transcript: texto, confidence: 0.92 }], { isFinal: true }) as Resultado;
+        atual.onresult?.({ resultIndex: 0, results: [resultado] });
       },
       falas: () => [...falas],
+      eventos: () => [...eventos],
+      sobreposicoes: () => sobreposicoes,
+      microfoneAberto: () => Boolean(atual?.iniciado),
+      segurarFala() { segurando = true; },
+      terminarFala() {
+        segurando = false;
+        const lista = pendentes;
+        pendentes = [];
+        lista.forEach((p) => p.onend?.());
+      },
     };
   });
 }
 
-export const falar = (page: Page, texto: string) => page.evaluate((t) => (window as unknown as { __voz: { falar(t: string): void } }).__voz.falar(t), texto);
-export const falasDoApp = (page: Page) => page.evaluate(() => (window as unknown as { __voz: { falas(): string[] } }).__voz.falas());
+type VozNaPagina = {
+  falar(t: string): Promise<void>; falas(): string[]; eventos(): string[]; sobreposicoes(): number;
+  microfoneAberto(): boolean; segurarFala(): void; terminarFala(): void;
+};
+/** O operador responde ao assistente (espera o microfone abrir e entrega a frase). */
+export const falar = (page: Page, texto: string) => page.evaluate((t) => (window as unknown as { __voz: VozNaPagina }).__voz.falar(t), texto);
+export const falasDoApp = (page: Page) => page.evaluate(() => (window as unknown as { __voz: VozNaPagina }).__voz.falas());
+export const eventosDeVoz = (page: Page) => page.evaluate(() => (window as unknown as { __voz: VozNaPagina }).__voz.eventos());
+export const sobreposicoesDeVoz = (page: Page) => page.evaluate(() => (window as unknown as { __voz: VozNaPagina }).__voz.sobreposicoes());
+export const microfoneAberto = (page: Page) => page.evaluate(() => (window as unknown as { __voz: VozNaPagina }).__voz.microfoneAberto());
+export const segurarFala = (page: Page) => page.evaluate(() => (window as unknown as { __voz: VozNaPagina }).__voz.segurarFala());
+export const terminarFala = (page: Page) => page.evaluate(() => (window as unknown as { __voz: VozNaPagina }).__voz.terminarFala());
 
 /** Contadores do cabeçalho da conferência (visíveis a partir de `sm`): o número fica logo acima do rótulo. */
 export function contador(page: Page, rotulo: 'OK' | 'Pend.' | 'Falta'): Locator {

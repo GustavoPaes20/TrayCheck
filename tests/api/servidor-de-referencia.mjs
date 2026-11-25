@@ -192,6 +192,14 @@ export function criarServidor() {
       };
     }],
 
+    // Voz do assistente (contrato: POST /voice/speech). O servidor de referência não tem chave da ElevenLabs,
+    // então responde como o backend real sem configuração: 503 — e o frontend usa a voz do navegador.
+    ['POST', /^\/voice\/speech$/, ({ requisicao, corpo }) => {
+      exigirSessao(requisicao);
+      if (!corpo || typeof corpo.text !== 'string' || corpo.text.trim() === '' || corpo.text.length > 300) throw new ErroHttp(400, 'Informe o texto (até 300 caracteres).');
+      throw new ErroHttp(503, 'A voz do assistente está indisponível no momento.');
+    }],
+
     ['GET', /^\/surgeries$/, ({ requisicao }) => { exigirSessao(requisicao); return { corpo: banco.cirurgias }; }],
     ['GET', /^\/surgeries\/([^/]+)\/kit$/, ({ requisicao, parametros }) => {
       exigirSessao(requisicao);

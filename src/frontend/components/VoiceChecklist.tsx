@@ -2,45 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { cirurgiasCadastradas, kitsPorCirurgia, coresDasCategorias } from '../data/mockData';
 import type { AuthUser, ReportItem, ReportItemStatus } from '../data/mockData';
 import { clienteApi, apiEstaConfigurada } from '../services/api';
-
-type SpeechRecognitionEvent = {
-  resultIndex: number;
-  results: SpeechRecognitionResultList;
-};
-
-type SpeechRecognitionErrorEvent = {
-  error: string;
-};
-
-type SpeechRecognitionResultList = {
-  length: number;
-  [index: number]: SpeechRecognitionResult;
-};
-
-type SpeechRecognitionResult = {
-  isFinal: boolean;
-  [index: number]: SpeechRecognitionAlternative;
-};
-
-type SpeechRecognitionAlternative = {
-  transcript: string;
-};
-
-type SpeechRecognitionInstance = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-
-type WindowWithSpeech = {
-  SpeechRecognition?: new () => SpeechRecognitionInstance;
-  webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
-};
+import { anuncioDoItem, nomeParaFala } from '../voice/anuncio';
+import { ControladorDaConferenciaPorVoz, type EstadoDaVoz, type ItemParaConferir } from '../voice/controlador';
+import { criarFalante, type Falante } from '../voice/falante';
+import type { Interpretacao } from '../voice/interpretarResposta';
+import { criarReconhecedor, solicitarPermissaoDoMicrofone, type Reconhecedor } from '../voice/reconhecedor';
 
 type VoiceChecklistProps = {
   idCirurgiaInicial?: string;
@@ -48,29 +14,23 @@ type VoiceChecklistProps = {
   voltarAoPainel?: () => void;
 };
 
-// Erros do reconhecimento que impedem de vez o uso do microfone (permissão negada ou sem microfone).
-// Os demais (silêncio, rede, interrupção) são normais: o reconhecimento é religado sozinho.
-const errosQueDesligamOMicrofone = ['not-allowed', 'service-not-allowed', 'audio-capture'];
-
-function normalizarTexto(texto: string): string {
-  return texto
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function textoCorrespondeAoItem(textoFalado: string, nomeDoItem: string): boolean {
-  const textoNormalizado = normalizarTexto(textoFalado);
-  const nomeNormalizado = normalizarTexto(nomeDoItem);
-  const palavras = nomeNormalizado.split(' ').filter((palavra) => palavra.length > 3);
-  if (palavras.length === 0) return textoNormalizado.includes(nomeNormalizado);
-  return palavras.filter((palavra) => textoNormalizado.includes(palavra)).length >= Math.max(1, Math.floor(palavras.length * 0.5));
-}
-
 const intervaloDaDemonstracao = 1800;
+
+const rotuloDaInterpretacao = {
+  positiva: '→ disponível',
+  negativa: '→ faltante',
+  inconclusiva: '→ não confirmado',
+  repetir: '→ repetindo',
+} as const;
+
+const tituloDoEstadoDaVoz: Record<EstadoDaVoz, { titulo: string; dica: string }> = {
+  parado: { titulo: 'Microfone inativo', dica: 'Toque para ativar o assistente de voz' },
+  pausado: { titulo: 'Assistente pausado', dica: 'Toque para continuar a conferência' },
+  erro: { titulo: 'Microfone indisponível', dica: 'Use os botões na tela ou toque para tentar de novo' },
+  falando: { titulo: 'Assistente falando...', dica: 'O microfone abre quando a pergunta terminar' },
+  ouvindo: { titulo: 'Ouvindo...', dica: 'Responda: "sim, temos" ou "não temos"' },
+  interpretando: { titulo: 'Entendendo a resposta...', dica: 'Aguarde um instante' },
+};
 
 function formatarDuracao(inicioDaConferencia: number) {
   const segundosDecorridos = Math.max(0, Math.floor((Date.now() - inicioDaConferencia) / 1000));
@@ -83,8 +43,9 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
   const [idCirurgiaSelecionada, definirIdCirurgiaSelecionada] = useState(idCirurgiaInicial || 'joelho');
   const [listaDeCirurgias, definirListaDeCirurgias] = useState(apiEstaConfigurada ? [] : cirurgiasCadastradas);
   const [itensDaConferencia, definirItensDaConferencia] = useState<ReportItem[]>([]);
-  const [ouvindoMicrofone, definirOuvindoMicrofone] = useState(false);
-  const [transcricaoAtual, definirTranscricaoAtual] = useState('');
+  const [estadoDaVoz, definirEstadoDaVoz] = useState<EstadoDaVoz>('parado');
+  const [mensagemDeVoz, definirMensagemDeVoz] = useState('');
+  const [ultimaInterpretacao, definirUltimaInterpretacao] = useState<Interpretacao['classe'] | null>(null);
   const [ultimoTextoReconhecido, definirUltimoTextoReconhecido] = useState('');
   const [conferenciaIniciada, definirConferenciaIniciada] = useState(false);
   const [conferenciaConcluida, definirConferenciaConcluida] = useState(false);
@@ -102,41 +63,11 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
   const inicioDaConferenciaRef = useRef<number | null>(null);
   const relatorioEnviadoRef = useRef(false);
 
-  const reconhecimentoDeVozRef = useRef<SpeechRecognitionInstance | null>(null);
+  const itensRef = useRef<ReportItem[]>([]);
+  const falanteRef = useRef<Falante | null>(null);
+  const reconhecedorRef = useRef<Reconhecedor | null>(null);
+  const controladorRef = useRef<ControladorDaConferenciaPorVoz | null>(null);
   const temporizadorDaDemonstracaoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Refs (e não estado) porque são lidas dentro dos eventos do navegador, que guardam valores antigos.
-  const querOuvirRef = useRef(false);
-  const sistemaFalandoRef = useRef(false);
-  const ultimoEnunciadoRef = useRef<SpeechSynthesisUtterance | null>(null);
-
-  function religarEscuta() {
-    if (!querOuvirRef.current || sistemaFalandoRef.current || !reconhecimentoDeVozRef.current) return;
-    try { reconhecimentoDeVozRef.current.start(); } catch (_) { /* ainda encerrando: o onend religa */ }
-  }
-
-  // Fala com o microfone pausado, para o sistema não ouvir a própria voz e confirmar itens sozinho.
-  function falar(texto: string) {
-    if (!window.speechSynthesis) { religarEscuta(); return; }
-    const enunciado = new SpeechSynthesisUtterance(texto);
-    enunciado.lang = 'pt-BR';
-    enunciado.rate = 0.95;
-    ultimoEnunciadoRef.current = enunciado;
-    sistemaFalandoRef.current = true;
-    if (reconhecimentoDeVozRef.current) {
-      try { reconhecimentoDeVozRef.current.stop(); } catch (_) {}
-    }
-    const aoTerminarDeFalar = () => {
-      if (ultimoEnunciadoRef.current !== enunciado) return; // uma fala mais nova substituiu esta
-      sistemaFalandoRef.current = false;
-      religarEscuta();
-    };
-    enunciado.onend = aoTerminarDeFalar;
-    enunciado.onerror = aoTerminarDeFalar;
-    // Segurança: alguns navegadores não disparam onend; religa depois do tempo estimado da fala.
-    setTimeout(aoTerminarDeFalar, 1500 + texto.length * 120);
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(enunciado);
-  }
 
   const cirurgiaSelecionada = listaDeCirurgias.find((cirurgia) => cirurgia.id === idCirurgiaSelecionada) ?? cirurgiasCadastradas.find((cirurgia) => cirurgia.id === idCirurgiaSelecionada) ?? cirurgiasCadastradas[0];
 
@@ -160,15 +91,14 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
     definirItensDaConferencia([]);
     definirConferenciaIniciada(false);
     definirConferenciaConcluida(false);
-    definirTranscricaoAtual('');
     definirUltimoTextoReconhecido('');
-    definirOuvindoMicrofone(false);
+    definirUltimaInterpretacao(null);
     definirFiltroDeStatus('all');
     inicioDaConferenciaRef.current = null;
     relatorioEnviadoRef.current = false;
     definirErroAoSalvarRelatorio('');
     interromperDemonstracao();
-    interromperReconhecimentoDeVoz();
+    interromperConversaPorVoz();
     const inicializarItensDaConferencia = async () => {
       try {
         const itensDoKit = apiEstaConfigurada
@@ -193,9 +123,7 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
       const todosOsItensProcessados = itensDaConferencia.every((itemDaConferencia) => itemDaConferencia.status !== 'pending');
       if (todosOsItensProcessados) {
         definirConferenciaConcluida(true);
-        definirOuvindoMicrofone(false);
         definirDemonstracaoEmExecucao(false);
-        interromperReconhecimentoDeVoz();
       }
     }
   }, [itensDaConferencia, conferenciaIniciada]);
@@ -226,17 +154,28 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
     }).finally(() => definirSalvandoRelatorio(false));
   }, [itensDaConferencia, cirurgiaSelecionada, idCirurgiaSelecionada, conferenciaConcluida, conferenciaIniciada, usuario.name, usuario.role]);
 
+  // Atualiza a lista de itens E o ref lido pelo controlador de voz (que precisa do estado atual na hora).
+  const atualizarItens = useCallback((atualizar: (itens: ReportItem[]) => ReportItem[]) => {
+    const proximos = atualizar(itensRef.current);
+    itensRef.current = proximos;
+    definirItensDaConferencia(proximos);
+  }, []);
+
+  // Ação manual (botões) durante a conversa por voz: descarta o turno atual e recomeça no item pendente certo.
+  const aoAgirManualmente = useCallback(() => controladorRef.current?.reiniciarTurno(), []);
+
   const marcarItem = useCallback((idDoItem: string, novoStatus: ReportItemStatus) => {
     const horarioAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    definirItensDaConferencia((itensAnteriores) =>
+    atualizarItens((itensAnteriores) =>
       itensAnteriores.map((itemDaConferencia) => (itemDaConferencia.id === idDoItem && itemDaConferencia.status === 'pending' ? { ...itemDaConferencia, status: novoStatus, confirmedAt: horarioAtual } : itemDaConferencia))
     );
     definirItemVerificadoRecentemente(idDoItem);
     setTimeout(() => definirItemVerificadoRecentemente(null), 600);
-  }, []);
+    aoAgirManualmente();
+  }, [atualizarItens, aoAgirManualmente]);
 
   const alternarStatusDoItem = useCallback((idDoItem: string) => {
-    definirItensDaConferencia((itensAnteriores) =>
+    atualizarItens((itensAnteriores) =>
       itensAnteriores.map((itemDaConferencia) => {
         if (itemDaConferencia.id !== idDoItem) return itemDaConferencia;
         if (itemDaConferencia.status === 'pending') return { ...itemDaConferencia, status: 'confirmed', confirmedAt: new Date().toLocaleTimeString('pt-BR') };
@@ -244,24 +183,76 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
         return itemDaConferencia;
       })
     );
-  }, []);
+    aoAgirManualmente();
+  }, [atualizarItens, aoAgirManualmente]);
 
   const marcarItemComoFaltante = useCallback((idDoItem: string) => {
     const horarioAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    definirItensDaConferencia((itensAnteriores) =>
+    atualizarItens((itensAnteriores) =>
       itensAnteriores.map((itemDaConferencia) =>
         itemDaConferencia.id === idDoItem ? { ...itemDaConferencia, status: 'missing', confirmedAt: horarioAtual } : itemDaConferencia
       )
     );
+    aoAgirManualmente();
+  }, [atualizarItens, aoAgirManualmente]);
+
+  // ── Voz do assistente e microfone ─────────────────────────────────────────────
+  // Um único falante (nunca duas falas ao mesmo tempo) e um único reconhecedor, criados na primeira renderização.
+  if (!falanteRef.current) {
+    falanteRef.current = criarFalante({
+      sintetizar: apiEstaConfigurada ? (texto, sinal) => clienteApi.voice.speak(texto, sinal) : undefined,
+    });
+  }
+  if (!reconhecedorRef.current) reconhecedorRef.current = criarReconhecedor();
+  itensRef.current = itensDaConferencia;
+
+  function falar(texto: string) {
+    void falanteRef.current!.falar(texto);
+  }
+
+  function obterControlador(): ControladorDaConferenciaPorVoz {
+    if (!controladorRef.current) {
+      controladorRef.current = new ControladorDaConferenciaPorVoz({
+        falante: falanteRef.current!,
+        reconhecedor: reconhecedorRef.current!,
+        obterItemAtual: (): ItemParaConferir | null => {
+          const pendentes = itensRef.current.filter((item) => item.status === 'pending');
+          const atual = pendentes[0];
+          if (!atual) return null;
+          return { id: atual.id, nome: atual.name, nomeFalado: nomeParaFala(atual.name), anuncio: anuncioDoItem(atual), quantidade: atual.quantity, outrosNomes: pendentes.slice(1).map((item) => item.name) };
+        },
+        registrar: (idDoItem, status) => {
+          const horario = new Date().toLocaleTimeString('pt-BR');
+          atualizarItens((itens) => itens.map((item) => (item.id === idDoItem && item.status === 'pending' ? { ...item, status, confirmedAt: horario } : item)));
+          definirItemVerificadoRecentemente(idDoItem);
+          setTimeout(() => definirItemVerificadoRecentemente(null), 800);
+        },
+        aoMudarEstado: (estado, detalhe) => {
+          definirEstadoDaVoz(estado);
+          definirMensagemDeVoz(detalhe ?? '');
+        },
+        aoEntender: (textoOuvido, interpretacao) => {
+          definirUltimoTextoReconhecido(textoOuvido);
+          definirUltimaInterpretacao(interpretacao.classe);
+        },
+      });
+    }
+    return controladorRef.current;
+  }
+
+  // Ao sair da tela: fecha o microfone e corta qualquer fala.
+  useEffect(() => () => {
+    controladorRef.current?.parar();
+    falanteRef.current?.cancelar();
+    reconhecedorRef.current?.cancelar();
   }, []);
 
-  function interromperReconhecimentoDeVoz() {
-    querOuvirRef.current = false;
-    if (reconhecimentoDeVozRef.current) {
-      try { reconhecimentoDeVozRef.current.stop(); } catch (_) {}
-      reconhecimentoDeVozRef.current = null;
-    }
-    definirOuvindoMicrofone(false);
+  function interromperConversaPorVoz() {
+    controladorRef.current?.parar();
+    falanteRef.current?.cancelar();
+    reconhecedorRef.current?.cancelar();
+    definirEstadoDaVoz('parado');
+    definirMensagemDeVoz('');
   }
 
   function interromperDemonstracao() {
@@ -272,103 +263,62 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
     definirDemonstracaoEmExecucao(false);
   }
 
-  function iniciarReconhecimentoDeVoz() {
-    const janelaComVoz = window as unknown as WindowWithSpeech;
-    const ConstrutorDeReconhecimento = janelaComVoz.SpeechRecognition || janelaComVoz.webkitSpeechRecognition;
-
-    if (!ConstrutorDeReconhecimento) {
-      alert('Reconhecimento de voz nao suportado neste navegador. Use o modo Demonstracao.');
-      return;
-    }
-
-    const reconhecimento = new ConstrutorDeReconhecimento();
-    reconhecimento.lang = 'pt-BR';
-    reconhecimento.continuous = true;
-    reconhecimento.interimResults = true;
-
-    reconhecimento.onresult = (eventoDeReconhecimento: SpeechRecognitionEvent) => {
-      if (sistemaFalandoRef.current) return; // ignora o que foi captado enquanto o sistema falava
-      const resultados: SpeechRecognitionResult[] = [];
-      for (let indice = eventoDeReconhecimento.resultIndex ?? 0; indice < eventoDeReconhecimento.results.length; indice++) {
-        resultados.push(eventoDeReconhecimento.results[indice]);
-      }
-      const transcricaoParcial = resultados.map((resultado) => resultado[0].transcript).join(' ');
-      definirTranscricaoAtual(transcricaoParcial);
-
-      const transcricaoFinal = resultados
-        .filter((resultado) => resultado.isFinal)
-        .map((resultado) => resultado[0].transcript)
-        .join(' ');
-
-      if (transcricaoFinal) {
-        definirUltimoTextoReconhecido(transcricaoFinal);
-        definirTranscricaoAtual('');
-        definirItensDaConferencia((itensAnteriores) => {
-          let nomeDoItemCorrespondente = '';
-          const itensAtualizados = itensAnteriores.map((itemDaConferencia) => {
-            if (itemDaConferencia.status === 'pending' && textoCorrespondeAoItem(transcricaoFinal, itemDaConferencia.name)) {
-              nomeDoItemCorrespondente = itemDaConferencia.name;
-              const horarioAtual = new Date().toLocaleTimeString('pt-BR');
-              definirItemVerificadoRecentemente(itemDaConferencia.id);
-              setTimeout(() => definirItemVerificadoRecentemente(null), 800);
-              return { ...itemDaConferencia, status: 'confirmed' as ReportItemStatus, confirmedAt: horarioAtual };
-            }
-            return itemDaConferencia;
-          });
-          if (nomeDoItemCorrespondente) falar(`${nomeDoItemCorrespondente}. Confirmado.`);
-          return itensAtualizados;
-        });
-      }
-    };
-
-    reconhecimento.onerror = (eventoDeErro: SpeechRecognitionErrorEvent) => {
-      if (!errosQueDesligamOMicrofone.includes(eventoDeErro?.error)) return; // o onend religa
-      interromperReconhecimentoDeVoz();
-      alert('O navegador bloqueou o microfone. Abra pelo Chrome ou Edge em http://localhost:8443 (ou https) e permita o acesso ao microfone.');
-    };
-
-    reconhecimento.onend = () => {
-      if (reconhecimentoDeVozRef.current === reconhecimento) religarEscuta();
-    };
-
-    reconhecimentoDeVozRef.current = reconhecimento;
-    querOuvirRef.current = true;
-    definirOuvindoMicrofone(true);
+  async function iniciarConversaPorVoz() {
+    // A conferência começa já aqui: se o microfone falhar, os botões de toque continuam concluindo-a (RNF02).
+    const retomando = conferenciaIniciada;
     definirConferenciaIniciada(true);
     inicioDaConferenciaRef.current ??= Date.now();
-    const primeiroItemPendente = itensDaConferencia.find((itemDaConferencia) => itemDaConferencia.status === 'pending');
-    falar(`Iniciando conferência de ${cirurgiaSelecionada.name}. ${primeiroItemPendente ? `Primeiro item: ${primeiroItemPendente.name}.` : 'Todos os itens já foram verificados.'}`);
+    if (!reconhecedorRef.current!.suportado) {
+      definirEstadoDaVoz('erro');
+      definirMensagemDeVoz('Reconhecimento de voz não suportado neste navegador. Use os botões na tela ou o modo Demonstração.');
+      return;
+    }
+    // Pede a permissão do microfone antes de começar, para mostrar uma mensagem clara se for negada.
+    const permissao = await solicitarPermissaoDoMicrofone();
+    if (permissao !== 'ok') {
+      definirEstadoDaVoz('erro');
+      definirMensagemDeVoz(permissao === 'permissao'
+        ? 'O acesso ao microfone foi negado. Permita o microfone nas configurações do navegador ou use os botões na tela.'
+        : 'Nenhum microfone foi encontrado. Conecte um microfone ou use os botões na tela.');
+      return;
+    }
+    definirUltimaInterpretacao(null);
+    obterControlador().iniciar(retomando ? 'Retomando a conferência. Item atual:' : `Iniciando conferência de ${cirurgiaSelecionada.name}. Primeiro item:`);
   }
 
   function alternarReconhecimentoDeVoz() {
-    if (ouvindoMicrofone) {
-      interromperReconhecimentoDeVoz();
+    if (conversaAtiva) {
+      controladorRef.current?.parar('pausado', 'Microfone pausado.');
       falar('Microfone pausado.');
     } else {
-      iniciarReconhecimentoDeVoz();
+      void iniciarConversaPorVoz();
     }
   }
 
   function pularItemAtual() {
     const proximoItemPendente = itensDaConferencia.find((itemDaConferencia) => itemDaConferencia.status === 'pending');
     if (!proximoItemPendente) return;
-    marcarItemComoFaltante(proximoItemPendente.id);
-    falar(`Item pulado: ${proximoItemPendente.name}. Marcado como faltando.`);
+    const conversando = Boolean(controladorRef.current?.emAndamento);
     const itemPendenteSeguinte = itensDaConferencia.find((itemDaConferencia) => itemDaConferencia.status === 'pending' && itemDaConferencia.id !== proximoItemPendente.id);
-    if (itemPendenteSeguinte) setTimeout(() => falar(`Próximo: ${itemPendenteSeguinte.name}`), 1800);
+    marcarItemComoFaltante(proximoItemPendente.id); // com a conversa ativa, o controlador anuncia o próximo item
+    if (!conversando) {
+      falar(`Item pulado: ${nomeParaFala(proximoItemPendente.name)}. Marcado como faltando.${itemPendenteSeguinte ? ` Próximo: ${nomeParaFala(itemPendenteSeguinte.name)}.` : ''}`);
+    }
   }
 
   function repetirItemAtual() {
     const proximoItemPendente = itensDaConferencia.find((itemDaConferencia) => itemDaConferencia.status === 'pending');
-    if (proximoItemPendente) {
-      falar(`${proximoItemPendente.name}. ${proximoItemPendente.quantity} ${proximoItemPendente.unit}.`);
+    if (controladorRef.current?.emAndamento) {
+      aoAgirManualmente(); // reinicia o turno: repete o anúncio e volta a ouvir
+    } else if (proximoItemPendente) {
+      falar(`${anuncioDoItem(proximoItemPendente)}.`);
     } else {
       falar('Todos os itens já foram verificados.');
     }
   }
 
   function finalizarConferencia() {
-    interromperReconhecimentoDeVoz();
+    interromperConversaPorVoz();
     interromperDemonstracao();
     if (quantidadeDeItensFaltantes > 0) {
       falar(`Conferência finalizada com ${quantidadeDeItensFaltantes} item faltando.`);
@@ -405,18 +355,20 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
 
   function reiniciarConferencia() {
     interromperDemonstracao();
-    interromperReconhecimentoDeVoz();
-    definirItensDaConferencia((itensAnteriores) => itensAnteriores.map((itemDaConferencia) => ({ ...itemDaConferencia, status: 'pending', confirmedAt: undefined })));
+    interromperConversaPorVoz();
+    atualizarItens((itensAnteriores) => itensAnteriores.map((itemDaConferencia) => ({ ...itemDaConferencia, status: 'pending', confirmedAt: undefined })));
     definirConferenciaIniciada(false);
     definirConferenciaConcluida(false);
     inicioDaConferenciaRef.current = null;
     relatorioEnviadoRef.current = false;
     definirErroAoSalvarRelatorio('');
-    definirTranscricaoAtual('');
     definirUltimoTextoReconhecido('');
+    definirUltimaInterpretacao(null);
     definirFiltroDeStatus('all');
   }
 
+  const conversaAtiva = estadoDaVoz === 'falando' || estadoDaVoz === 'ouvindo' || estadoDaVoz === 'interpretando';
+  const ouvindoMicrofone = estadoDaVoz === 'ouvindo'; // microfone realmente aberto
   const quantidadeDeItensConfirmados = itensDaConferencia.filter((itemDaConferencia) => itemDaConferencia.status === 'confirmed').length;
   const quantidadeDeItensFaltantes = itensDaConferencia.filter((itemDaConferencia) => itemDaConferencia.status === 'missing').length;
   const quantidadeDeItensPendentes = itensDaConferencia.filter((itemDaConferencia) => itemDaConferencia.status === 'pending').length;
@@ -623,6 +575,7 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
             <div className="flex items-center gap-2 text-sm animate-slide-in-right">
               <span className="text-gray-400">Detectado:</span>
               <span className="font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-lg">"{ultimoTextoReconhecido}"</span>
+              {ultimaInterpretacao && <span className="text-xs font-semibold text-gray-500">{rotuloDaInterpretacao[ultimaInterpretacao]}</span>}
             </div>
           )}
         </div>
@@ -761,7 +714,7 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
             <line x1="12" y1="21" x2="12" y2="17" stroke="white" strokeWidth="2" strokeLinecap="round" />
             <line x1="8" y1="22.5" x2="16" y2="22.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
           </svg>
-          <span>{ouvindoMicrofone ? 'Ouvindo...' : 'Microfone'}</span>
+          <span>{ouvindoMicrofone ? 'Ouvindo...' : conversaAtiva ? 'Assistente' : 'Microfone'}</span>
         </button>
       </div>
 
@@ -830,11 +783,11 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
             </div>
 
             <div className="text-center">
-              <div className="font-bold text-base" style={{ color: ouvindoMicrofone ? '#1D4ED8' : '#374151', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-                {ouvindoMicrofone ? 'Ouvindo...' : 'Microfone inativo'}
+              <div className="font-bold text-base" style={{ color: conversaAtiva ? '#1D4ED8' : '#374151', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                {tituloDoEstadoDaVoz[estadoDaVoz].titulo}
               </div>
               <div className="text-xs text-gray-400 mt-0.5">
-                {ouvindoMicrofone ? 'Dite o nome do equipamento' : 'Toque para ativar o microfone'}
+                {tituloDoEstadoDaVoz[estadoDaVoz].dica}
               </div>
             </div>
 
@@ -846,19 +799,26 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
               </div>
             )}
 
-            {(transcricaoAtual || ultimoTextoReconhecido) && (
+            {mensagemDeVoz && (estadoDaVoz === 'erro' || estadoDaVoz === 'pausado') && (
+              <div role="alert" className="w-full bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs font-medium">
+                {mensagemDeVoz}
+              </div>
+            )}
+
+            {ultimoTextoReconhecido && (
               <div className="w-full bg-blue-50 border border-blue-100 rounded-xl p-3">
-                {transcricaoAtual && <div className="text-blue-400 italic text-xs mb-1">"{transcricaoAtual}"</div>}
-                {ultimoTextoReconhecido && <div className="text-blue-700 font-semibold text-sm">Ultimo: "{ultimoTextoReconhecido}"</div>}
+                <div className="text-blue-700 font-semibold text-sm">
+                  Ultimo: "{ultimoTextoReconhecido}"{ultimaInterpretacao && <span className="ml-2 text-xs text-blue-500">{rotuloDaInterpretacao[ultimaInterpretacao]}</span>}
+                </div>
               </div>
             )}
 
             <button
               onClick={alternarReconhecimentoDeVoz}
               className="w-full py-3 rounded-xl font-semibold text-sm transition-all duration-200"
-              style={{ background: ouvindoMicrofone ? '#FEF2F2' : 'linear-gradient(135deg, #1D4ED8, #2563EB)', color: ouvindoMicrofone ? '#DC2626' : '#FFFFFF' }}
+              style={{ background: conversaAtiva ? '#FEF2F2' : 'linear-gradient(135deg, #1D4ED8, #2563EB)', color: conversaAtiva ? '#DC2626' : '#FFFFFF' }}
             >
-              {ouvindoMicrofone ? 'Pausar Microfone' : 'Ativar Microfone'}
+              {conversaAtiva ? 'Pausar Microfone' : 'Ativar Microfone'}
             </button>
           </div>
 
@@ -881,9 +841,9 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
             </div>
             <button
               onClick={iniciarDemonstracao}
-              disabled={ouvindoMicrofone}
+              disabled={conversaAtiva}
               className="w-full py-2 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2"
-              style={{ background: demonstracaoEmExecucao ? '#FEF3C7' : '#F3F4F6', color: demonstracaoEmExecucao ? '#92400E' : '#374151', opacity: ouvindoMicrofone ? 0.4 : 1 }}
+              style={{ background: demonstracaoEmExecucao ? '#FEF3C7' : '#F3F4F6', color: demonstracaoEmExecucao ? '#92400E' : '#374151', opacity: conversaAtiva ? 0.4 : 1 }}
             >
               {demonstracaoEmExecucao ? <><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Parar Demo</> : <><svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3"><polygon points="3,2 10,6 3,10" /></svg>Modo Demo</>}
             </button>

@@ -29,7 +29,7 @@ A coleção é repetível contra APIs persistentes (usa um e-mail único por exe
 
 ## Voz nos testes
 
-O microfone real não é automatizável. Os testes usam uma Web Speech API falsa (`helpers/voz.ts` nos unitários/integração; `e2e/apoio.ts` no navegador). A taxa de reconhecimento (RNF03, meta ≥ 80%) continua sendo **roteiro manual** da equipe de QA, em condições de ruído simuladas.
+O microfone e a voz real não são automatizáveis. Os testes usam uma Web Speech API falsa (`helpers/voz.ts` nos unitários/integração; `e2e/apoio.ts` no navegador) que imita o que importa no diálogo: **uma escuta nova por pergunta**, síntese que **só termina quando o teste manda** (para provar que o microfone não abre durante a fala) e registro da ordem fala/microfone. No E2E o Chromium usa microfone falso (`playwright.config.ts`). A ElevenLabs nunca é chamada nos testes (o backend usa `fetch` simulado). A taxa de reconhecimento (RNF03, meta ≥ 80%) e a **qualidade da voz** continuam sendo **roteiro manual** da equipe de QA, em condições de ruído reais. Veja `docs/voz-do-assistente.md`.
 
 ## Defeitos conhecidos documentados nos testes
 
@@ -40,8 +40,6 @@ Os testes abaixo estão marcados como falha esperada (`it.fails` no Vitest, `tes
 | "Finalizar" encerra a conferência mesmo com itens pendentes | `VoiceChecklist.tsx` (`finalizarConferencia`) | RN01 |
 | Só por toque a conferência nunca inicia/conclui (depende de ativar microfone ou modo demo) | `VoiceChecklist.tsx` | RNF02 |
 | Editar um usuário inativo (modo demo) o reativa: o formulário grava `status: 'active'` fixo | `UserManager.tsx` (`enviarFormulario`) | RF01 |
-
-Observação de comportamento (não é falha de teste): o reconhecimento ignora palavras com 3 letras ou menos; dizer só "CO2" não confirma o item "CO2 Medicinal" (é preciso dizer "medicinal").
 
 ## Rastreabilidade (resumo)
 
