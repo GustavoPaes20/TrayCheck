@@ -22,7 +22,7 @@ Peças (todas em `src/frontend/voice/`):
 | --- | --- |
 | `interpretarResposta.ts` | Função pura: texto falado → `positiva`, `negativa`, `inconclusiva` ou `repetir`. |
 | `controlador.ts` | Máquina de estados do diálogo (anunciar → ouvir → registrar). Garante que fala e microfone nunca se sobreponham. |
-| `falante.ts` | Fala o texto e **só resolve quando o áudio termina**. ElevenLabs via backend, com cache; voz do navegador como alternativa. |
+| `falante.ts` | Fala o texto e **só resolve quando o áudio termina**. Com backend, **toda fala é da ElevenLabs** (cache + 3 tentativas); **não há voz do navegador de reserva**. Se falhar, `falhou = true` e a conversa pausa. Sem backend (demonstração), usa a voz do navegador. |
 | `reconhecedor.ts` | Web Speech API, uma escuta por vez, só resultados finais, microfone fechado assim que a resposta chega. |
 | `anuncio.ts` | Texto de tela → fala natural ("nº 22" → "número 22", "2 unid" → "2 unidades"). |
 
@@ -50,12 +50,18 @@ Peças (todas em `src/frontend/voice/`):
   **outro** item (mesmo junto com o atual), ressalvas como "problema" ou "defeito", quantidade parcial, baixa confiança
   do reconhecedor numa resposta positiva, ou alternativas do reconhecedor que discordam.
   O assistente diz: *"Não consegui confirmar. {item} está disponível?"*
-- **Escuta curta:** se a escuta fecha sem resposta (o Chrome encerra sozinho após silêncio), o microfone é **reaberto em
-  silêncio** até 4 vezes (`REABERTURAS_SILENCIOSAS` em `controlador.ts`) antes de o assistente repetir a pergunta.
-  A tela mostra "Abrindo o microfone..." e só passa a "Ouvindo..." quando o navegador realmente começou a captar áudio.
+- **Janela de resposta garantida:** o usuário tem `TEMPO_MAXIMO_DE_ESCUTA_MS` (12 s, em `reconhecedor.ts`) para responder.
+  O Chrome costuma encerrar o reconhecimento antes (silêncio curto, fim espontâneo): o reconhecedor **reabre o microfone
+  sozinho** até completar a janela. Se a janela inteira passa em silêncio, o controlador reabre mais uma vez em silêncio
+  (`REABERTURAS_SILENCIOSAS`, em `controlador.ts`) antes de o assistente repetir a pergunta. A tela mostra "Abrindo o
+  microfone..." e só passa a "Ouvindo..." quando o navegador realmente começou a captar áudio.
+- **Voz indisponível:** se a ElevenLabs não responder (chave/voz inválidas, plano, rede), o assistente **não** fala com a
+  voz do navegador: a conversa pausa com o aviso "A voz do assistente (ElevenLabs) não respondeu..." e os botões da tela
+  continuam funcionando.
 - Depois de **3** respostas ruins/ausentes seguidas no mesmo item, o assistente **pausa** e orienta o uso dos botões.
-- **Diagnóstico:** cada fim de escuta aparece no Console do navegador (nível Info): `[voz] escuta encerrada: silencio
-  após 640 ms; microfone aberto: sim`. Útil quando a escuta fecha cedo demais.
+- **Diagnóstico:** o Console do navegador (nível Info) mostra cada reabertura (`[voz] o navegador encerrou a escuta (end)
+  após 640 ms; reabrindo o microfone (1)`) e o fim da escuta (`[voz] escuta encerrada: silencio após 12003 ms; microfone
+  aberto: sim; reinícios: 3`). Útil quando a escuta fecha cedo demais.
 - Pedido para repetir ("repete", "não entendi") repete a pergunta sem contar como tentativa.
 
 ## Configuração da voz (ElevenLabs)

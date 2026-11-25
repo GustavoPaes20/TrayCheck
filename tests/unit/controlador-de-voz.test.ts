@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ControladorDaConferenciaPorVoz, FRASES, pareceEco,
-  ajustesDeTempo, type EstadoDaVoz, type ItemParaConferir,
+  ajustesDeTempo, MENSAGEM_VOZ_INDISPONIVEL, type EstadoDaVoz, type ItemParaConferir,
 } from '@/voice/controlador';
 import type { Falante } from '@/voice/falante';
 import type { Reconhecedor, ResultadoDaEscuta } from '@/voice/reconhecedor';
@@ -327,5 +327,30 @@ describe('escuta curta: reabrir o microfone em silêncio antes de repetir a perg
     const nomes = c.estados.map(([estado]) => estado);
     expect(nomes.indexOf('preparando')).toBeGreaterThan(-1);
     expect(nomes.indexOf('preparando')).toBeLessThan(nomes.indexOf('ouvindo'));
+  });
+});
+
+describe('voz do assistente indisponível (ElevenLabs não respondeu)', () => {
+  it('pausa com aviso, NÃO abre o microfone e não registra nada', async () => {
+    const c = new Cenario();
+    (c.falante as { falhou?: boolean }).falhou = true;
+    c.controlador.iniciar();
+    await concluir(c, 'pausado');
+
+    expect(c.estados.at(-1)).toEqual(['pausado', MENSAGEM_VOZ_INDISPONIVEL]);
+    expect(c.eventos).not.toContain('mic:abre');
+    expect(c.registros).toEqual([]);
+    expect(c.controlador.emAndamento).toBe(false);
+  });
+
+  it('falha só na frase final (conferência já concluída) não vira erro', async () => {
+    const c = new Cenario();
+    c.itens.forEach((i) => { i.status = 'confirmed'; });
+    (c.falante as { falhou?: boolean }).falhou = true;
+    c.controlador.iniciar();
+    await concluir(c, 'parado');
+
+    expect(c.estados.at(-1)?.[0]).toBe('parado');
+    expect(c.estados.some(([estado]) => estado === 'pausado')).toBe(false);
   });
 });

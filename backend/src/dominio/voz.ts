@@ -5,7 +5,7 @@ import { ErroApi } from '../http/erros.js';
 // Síntese de fala da ElevenLabs para o assistente da conferência.
 //  - A chave fica só em variável de ambiente (config.voz) e nunca aparece em resposta, log ou erro.
 //  - Frases iguais vêm de um cache em memória (a conferência repete as mesmas frases o tempo todo).
-//  - Falha da ElevenLabs vira 503 VOZ_INDISPONIVEL: o frontend cai para a voz do navegador.
+//  - Falha da ElevenLabs vira 503 VOZ_INDISPONIVEL: o frontend tenta de novo e, se persistir, pausa a conferência por voz.
 
 export type OpcoesDeVoz = typeof config.voz;
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;

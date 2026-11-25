@@ -53,7 +53,8 @@ export const ATRASO_APOS_FALA_MS = 450;
 export const MAXIMO_DE_TENTATIVAS = 3;
 
 /** Valores usados quando a dependência não os informa. Os testes de tela zeram a pausa para ficarem rápidos. */
-export const REABERTURAS_SILENCIOSAS = 4;
+export const REABERTURAS_SILENCIOSAS = 1;
+export const MENSAGEM_VOZ_INDISPONIVEL = 'A voz do assistente (ElevenLabs) não respondeu. Confira a conexão com o servidor e use os botões na tela.';
 export const ajustesDeTempo = { atrasoAposFalaMs: ATRASO_APOS_FALA_MS, reaberturasSilenciosas: REABERTURAS_SILENCIOSAS };
 
 /** Respiro antes de reabrir o microfone em silêncio (evita laço rápido se o navegador encerrar a escuta na hora). */
@@ -124,12 +125,20 @@ export class ControladorDaConferenciaPorVoz {
     return this.ativo && geracao === this.geracao;
   }
 
-  private async dizer(geracao: number, texto: string): Promise<boolean> {
+  private async dizer(geracao: number, texto: string, tolerarFalha = false): Promise<boolean> {
     this.deps.reconhecedor.cancelar(); // garante microfone fechado durante a fala
     this.ultimaFala = texto;
     this.deps.aoMudarEstado('falando');
     await this.deps.falante.falar(texto); // só volta quando o áudio terminou (ou foi cancelado)
-    return this.vigente(geracao);
+    if (!this.vigente(geracao)) return false;
+    if (this.deps.falante.falhou && !tolerarFalha) {
+      // A ElevenLabs não respondeu: não existe voz robótica de reserva. Pausa e deixa os botões da tela.
+      this.nova();
+      this.ativo = false;
+      this.deps.aoMudarEstado('pausado', MENSAGEM_VOZ_INDISPONIVEL);
+      return false;
+    }
+    return true;
   }
 
   private async conversar(geracao: number, introducao: string): Promise<void> {
@@ -150,7 +159,7 @@ export class ControladorDaConferenciaPorVoz {
     while (this.vigente(geracao)) {
       const item = obterItemAtual();
       if (!item) {
-        if (!(await this.dizer(geracao, FRASES.concluida))) return;
+        if (!(await this.dizer(geracao, FRASES.concluida, true))) return;
         this.ativo = false;
         aoMudarEstado('parado');
         return;
@@ -231,7 +240,7 @@ export class ControladorDaConferenciaPorVoz {
   }
 
   private async pausarPorFalta(geracao: number, frase: string) {
-    if (!(await this.dizer(geracao, frase))) return;
+    if (!(await this.dizer(geracao, frase, true))) return;
     this.ativo = false;
     this.deps.aoMudarEstado('pausado', frase);
   }

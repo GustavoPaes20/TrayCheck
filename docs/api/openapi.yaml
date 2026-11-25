@@ -511,7 +511,7 @@ paths:
 
         Converte um texto curto em áudio MP3 com a voz configurada no servidor. A chave da ElevenLabs existe **somente** em variável de ambiente do backend e nunca é enviada ao navegador.
 
-        Respostas iguais são servidas de um cache do servidor (não geram nova chamada paga). Há limite de requisições por usuário. Se a ElevenLabs não estiver configurada ou falhar, responde 503 `VOZ_INDISPONIVEL` e o frontend usa a voz do navegador como alternativa.
+        Respostas iguais são servidas de um cache do servidor (não geram nova chamada paga). Há limite de requisições por usuário. Se a ElevenLabs não estiver configurada ou falhar, responde 503 `VOZ_INDISPONIVEL`; o frontend tenta de novo e, se continuar falhando, pausa a conferência por voz (não há voz do navegador de reserva).
       operationId: synthesizeSpeech
       requestBody:
         required: true
@@ -557,7 +557,7 @@ paths:
                 message: Muitas solicitações de voz. Aguarde alguns segundos.
                 code: LIMITE_DE_VOZ
         '503':
-          description: Voz indisponível (ElevenLabs não configurada ou fora do ar). O frontend usa a voz do navegador.
+          description: Voz indisponível (ElevenLabs não configurada ou fora do ar). O frontend pausa a conferência por voz e orienta o uso dos botões.
           content:
             application/json:
               schema:
