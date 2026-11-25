@@ -7,6 +7,7 @@ Decisões arquiteturais do backend do TrayCheck (`backend/`), com contexto, alte
 | [0001](0001-sessoes-em-tabela-com-sha256.md) | Sessões em tabela, com o token guardado só como hash SHA-256 | Aceita | RF02, RNF01 |
 | [0002](0002-dashboard-derivado-das-checagens-do-dia.md) | Painel inicial derivado das checagens reais do dia | Aceita | Rota de apoio `/dashboard` |
 | [0003](0003-saldo-de-estoque-apenas-por-movimentacao.md) | Saldo de estoque alterado apenas por movimentação | Aceita | Rota de apoio `/stock`, V005 |
+| [0004](0004-voz-do-assistente-elevenlabs-pelo-backend.md) | Voz do assistente pela ElevenLabs via backend, sem voz de reserva | Aceita | RF07, RNF02, RNF03, RNF07 |
 
 ## Formato
 

@@ -2,11 +2,11 @@ openapi: 3.0.3
 
 info:
   title: TrayCheck API
-  version: 1.2.0
+  version: 1.3.0
   description: |
     API REST do **TrayCheck**, sistema de checklist de instrumentos cirúrgicos pré-cirurgia com assistência de voz (Projeto Integrador, FAMETRO, 2026).
 
-    Contrato de API (IC-16), revisão 1.2, alinhado à ERS v2.5, à RTM v1.4 e às migrações `db/migrations` V001–V007. O frontend (`src/frontend/services/api.ts`) usa 22 destas rotas; as demais cobrem os outros requisitos funcionais.
+    Contrato de API (IC-16), revisão 1.3 (RFC-09: acrescenta `POST /voice/speech`), alinhado à ERS v2.6, à RTM v1.7 e às migrações `db/migrations` V001–V007. O frontend (`src/frontend/services/api.ts`) usa 22 destas rotas; as demais cobrem os outros requisitos funcionais.
 
     ### Requisitos atendidos
     Numeração da ERS v2.5 (ordem de uso: o cadastro de usuários vem primeiro).
