@@ -71,14 +71,20 @@ export async function instalarVozFalsa(page: Page) {
     };
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
-      value: { cancel() {}, speak: (e: { text: string }) => void falas.push(e.text) },
+      value: {
+        cancel() {},
+        speak: (e: { text: string; onend?: (() => void) | null }) => {
+          falas.push(e.text);
+          e.onend?.(); // o navegador avisa que terminou de falar
+        },
+      },
     });
     w.__voz = {
       /** Entrega uma transcrição final ao reconhecimento mais recente. */
       falar(texto: string) {
         const reconhecimento = instancias.at(-1);
         if (!reconhecimento?.onresult) throw new Error('O microfone ainda não foi ativado.');
-        reconhecimento.onresult({ results: [Object.assign([{ transcript: texto }], { isFinal: true }) as Resultado] });
+        reconhecimento.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: texto }], { isFinal: true }) as Resultado] } as never);
       },
       falas: () => [...falas],
     };

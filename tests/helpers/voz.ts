@@ -17,8 +17,8 @@ export class ReconhecimentoDeVozFalso {
   continuous = false;
   interimResults = false;
   iniciado = false;
-  onresult: ((evento: { results: ResultadoFalso[] }) => void) | null = null;
-  onerror: (() => void) | null = null;
+  onresult: ((evento: { resultIndex: number; results: ResultadoFalso[] }) => void) | null = null;
+  onerror: ((evento: { error: string }) => void) | null = null;
   onend: (() => void) | null = null;
 
   constructor() {
@@ -36,11 +36,12 @@ export class ReconhecimentoDeVozFalso {
   /** Simula o navegador entregando uma transcrição (parcial ou final). */
   falar(texto: string, final = true) {
     const resultado = Object.assign([{ transcript: texto }], { isFinal: final }) as ResultadoFalso;
-    act(() => this.onresult?.({ results: [resultado] }));
+    act(() => this.onresult?.({ resultIndex: 0, results: [resultado] }));
   }
 
-  falharComErro() {
-    act(() => this.onerror?.());
+  /** Simula um erro do navegador. `not-allowed` = permissão do microfone negada; `no-speech` = silêncio. */
+  falharComErro(codigo = 'not-allowed') {
+    act(() => this.onerror?.({ error: codigo }));
   }
 }
 
@@ -48,19 +49,34 @@ export class ReconhecimentoDeVozFalso {
 export function instalarVozFalsa() {
   ReconhecimentoDeVozFalso.instancias = [];
   const falas: string[] = [];
+  /** Com `segurarFalas = true`, a fala só termina quando o teste chamar `terminarFala()`. */
+  const controle = { segurarFalas: false, falaEmAndamento: null as EnunciadoFalso | null };
 
   class EnunciadoFalso {
     lang = '';
     rate = 1;
+    onend: (() => void) | null = null;
+    onerror: (() => void) | null = null;
     constructor(public text: string) {}
+  }
+
+  function terminarFala() {
+    const enunciado = controle.falaEmAndamento;
+    controle.falaEmAndamento = null;
+    act(() => enunciado?.onend?.());
   }
 
   vi.stubGlobal('SpeechRecognition', ReconhecimentoDeVozFalso);
   vi.stubGlobal('SpeechSynthesisUtterance', EnunciadoFalso);
   vi.stubGlobal('speechSynthesis', {
     cancel: vi.fn(),
-    speak: vi.fn((enunciado: EnunciadoFalso) => falas.push(enunciado.text)),
+    speak: vi.fn((enunciado: EnunciadoFalso) => {
+      falas.push(enunciado.text);
+      controle.falaEmAndamento = enunciado;
+      if (!controle.segurarFalas) enunciado.onend?.(); // o navegador avisa que terminou de falar
+    }),
   });
+  vi.stubGlobal('alert', vi.fn());
 
-  return { falas };
+  return { falas, controle, terminarFala };
 }
