@@ -15,8 +15,11 @@ export type ResultadoDaEscuta =
 
 export type Reconhecedor = {
   readonly suportado: boolean;
-  /** Abre o microfone e resolve com a próxima frase (ou silêncio/erro/cancelamento). Nunca rejeita. */
-  ouvir(): Promise<ResultadoDaEscuta>;
+  /**
+   * Abre o microfone e resolve com a próxima frase (ou silêncio/erro/cancelamento). Nunca rejeita.
+   * `aoAbrir` é chamado quando o navegador REALMENTE começou a captar áudio (só daí o usuário pode falar).
+   */
+  ouvir(aoAbrir?: () => void): Promise<ResultadoDaEscuta>;
   /** Fecha o microfone imediatamente; a escuta em andamento resolve como `cancelado`. */
   cancelar(): void;
 };
@@ -34,6 +37,8 @@ type InstanciaDeReconhecimento = {
   onresult: ((evento: EventoDeResultado) => void) | null;
   onerror: ((evento: EventoDeErro) => void) | null;
   onend: (() => void) | null;
+  onstart?: (() => void) | null;
+  onaudiostart?: (() => void) | null;
   start: () => void;
   stop: () => void;
   abort?: () => void;
@@ -70,7 +75,7 @@ export function criarReconhecedor(tempoMaximoMs = TEMPO_MAXIMO_DE_ESCUTA_MS): Re
     escutaAtual?.encerrar({ tipo: 'cancelado' });
   }
 
-  function ouvir(): Promise<ResultadoDaEscuta> {
+  function ouvir(aoAbrir?: () => void): Promise<ResultadoDaEscuta> {
     cancelar(); // garante um único microfone aberto
     const Construtor = construtorDoNavegador();
     if (!Construtor) return Promise.resolve({ tipo: 'erro', motivo: 'indisponivel' });
@@ -78,16 +83,27 @@ export function criarReconhecedor(tempoMaximoMs = TEMPO_MAXIMO_DE_ESCUTA_MS): Re
     return new Promise<ResultadoDaEscuta>((resolver) => {
       const reconhecimento = new Construtor();
       let resolvido = false;
+      let aberto = false;
+      const inicio = Date.now();
+      const avisarAbertura = () => {
+        if (aberto || resolvido) return;
+        aberto = true;
+        aoAbrir?.();
+      };
 
       const escuta = {
         encerrar(resultado: ResultadoDaEscuta) {
           if (resolvido) return; // primeira resposta vence; o resto é descartado
           resolvido = true;
+          // Diagnóstico (Console do navegador, nível Info): por que e quando cada escuta terminou.
+          console.info(`[voz] escuta encerrada: ${resultado.tipo}${'motivo' in resultado ? ` (${resultado.motivo})` : ''} após ${Date.now() - inicio} ms; microfone aberto: ${aberto ? 'sim' : 'não'}`);
           clearTimeout(limite);
           if (escutaAtual === escuta) escutaAtual = null;
           reconhecimento.onresult = null;
           reconhecimento.onerror = null;
           reconhecimento.onend = null;
+          reconhecimento.onstart = null;
+          reconhecimento.onaudiostart = null;
           try { (reconhecimento.abort ?? reconhecimento.stop).call(reconhecimento); } catch { /* já encerrado */ }
           resolver(resultado);
         },
@@ -100,6 +116,8 @@ export function criarReconhecedor(tempoMaximoMs = TEMPO_MAXIMO_DE_ESCUTA_MS): Re
       reconhecimento.interimResults = false;
       reconhecimento.maxAlternatives = 3;
 
+      reconhecimento.onstart = avisarAbertura; // navegadores sem onaudiostart
+      reconhecimento.onaudiostart = avisarAbertura;
       reconhecimento.onresult = (evento) => {
         for (let i = evento.resultIndex ?? 0; i < evento.results.length; i++) {
           const resultado = evento.results[i];

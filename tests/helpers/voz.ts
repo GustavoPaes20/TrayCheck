@@ -31,6 +31,8 @@ export class ReconhecimentoDeVozFalso {
   onresult: ((evento: { resultIndex?: number; results: ResultadoFalso[] }) => void) | null = null;
   onerror: ((evento?: { error?: string }) => void) | null = null;
   onend: (() => void) | null = null;
+  onstart: (() => void) | null = null;
+  onaudiostart: (() => void) | null = null;
 
   constructor() {
     ReconhecimentoDeVozFalso.instancias.push(this);
@@ -39,6 +41,7 @@ export class ReconhecimentoDeVozFalso {
   start() {
     this.iniciado = true;
     this.jaIniciou = true;
+    this.onaudiostart?.(); // o navegador começou a captar áudio
   }
 
   stop() {
@@ -91,6 +94,7 @@ export async function aguardarFala(falas: string[], trecho: string | RegExp) {
 export function instalarVozFalsa() {
   ReconhecimentoDeVozFalso.instancias = [];
   ajustesDeTempo.atrasoAposFalaMs = 0;
+  ajustesDeTempo.reaberturasSilenciosas = 0; // os testes de tela ligam a reabertura silenciosa só onde precisam
   const falas: string[] = [];
   let segurando = false;
   let emFala: EnunciadoFalso[] = [];

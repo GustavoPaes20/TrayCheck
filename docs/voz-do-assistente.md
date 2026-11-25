@@ -50,7 +50,12 @@ Peças (todas em `src/frontend/voice/`):
   **outro** item (mesmo junto com o atual), ressalvas como "problema" ou "defeito", quantidade parcial, baixa confiança
   do reconhecedor numa resposta positiva, ou alternativas do reconhecedor que discordam.
   O assistente diz: *"Não consegui confirmar. {item} está disponível?"*
+- **Escuta curta:** se a escuta fecha sem resposta (o Chrome encerra sozinho após silêncio), o microfone é **reaberto em
+  silêncio** até 4 vezes (`REABERTURAS_SILENCIOSAS` em `controlador.ts`) antes de o assistente repetir a pergunta.
+  A tela mostra "Abrindo o microfone..." e só passa a "Ouvindo..." quando o navegador realmente começou a captar áudio.
 - Depois de **3** respostas ruins/ausentes seguidas no mesmo item, o assistente **pausa** e orienta o uso dos botões.
+- **Diagnóstico:** cada fim de escuta aparece no Console do navegador (nível Info): `[voz] escuta encerrada: silencio
+  após 640 ms; microfone aberto: sim`. Útil quando a escuta fecha cedo demais.
 - Pedido para repetir ("repete", "não entendi") repete a pergunta sem contar como tentativa.
 
 ## Configuração da voz (ElevenLabs)

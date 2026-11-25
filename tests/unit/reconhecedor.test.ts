@@ -9,6 +9,8 @@ class ReconhecimentoFalso {
   onresult: ((e: any) => void) | null = null;
   onerror: ((e: any) => void) | null = null;
   onend: (() => void) | null = null;
+  onstart: (() => void) | null = null;
+  onaudiostart: (() => void) | null = null;
   iniciado = false;
   abortado = false;
   constructor() { ReconhecimentoFalso.instancias.push(this); }
@@ -135,6 +137,33 @@ describe('reconhecedor de escuta única', () => {
     vi.stubGlobal('SpeechRecognition', undefined);
     vi.stubGlobal('webkitSpeechRecognition', ReconhecimentoFalso);
     expect(criarReconhecedor().suportado).toBe(true);
+  });
+});
+
+describe('aviso de microfone aberto e diagnóstico', () => {
+  it('aoAbrir só é chamado quando o navegador começa a captar áudio (uma vez)', () => {
+    const aoAbrir = vi.fn();
+    void criarReconhecedor().ouvir(aoAbrir);
+    expect(aoAbrir).not.toHaveBeenCalled(); // start() foi chamado, mas ainda não captou
+    ultima().onaudiostart?.();
+    ultima().onstart?.();
+    expect(aoAbrir).toHaveBeenCalledTimes(1);
+  });
+
+  it('usa onstart quando o navegador não tem onaudiostart', () => {
+    const aoAbrir = vi.fn();
+    void criarReconhecedor().ouvir(aoAbrir);
+    ultima().onstart?.();
+    expect(aoAbrir).toHaveBeenCalledTimes(1);
+  });
+
+  it('registra no Console por que e quando a escuta terminou', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const escuta = criarReconhecedor().ouvir();
+    ultima().onend?.();
+    await escuta;
+    expect(info).toHaveBeenCalledWith(expect.stringMatching(/\[voz\] escuta encerrada: silencio após \d+ ms; microfone aberto: não/));
+    info.mockRestore();
   });
 });
 
