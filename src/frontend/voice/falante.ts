@@ -1,4 +1,8 @@
-// Voz do assistente: ElevenLabs (via backend) com a voz do navegador como alternativa.
+// Voz do assistente.
+//
+// - Conectado ao backend: TODA fala sai da ElevenLabs. Não existe voz do navegador de reserva: se a ElevenLabs falhar,
+//   tenta de novo e, esgotadas as tentativas, `falhou` fica true e o controlador PAUSA a conversa (nunca fala robótico).
+// - Modo demonstração (sem backend): só existe a voz do navegador.
 //
 // Contrato importante para a conferência: `falar()` devolve uma Promise que só se resolve QUANDO O ÁUDIO
 // TERMINA (ou é cancelado). É isso que permite abrir o microfone depois — e nunca durante — a fala.
@@ -13,19 +17,24 @@ export type Falante = {
   cancelar(): void;
   /** Motor usado na última fala (para diagnóstico na tela). */
   readonly motor: MotorDeVoz | null;
+  /** True quando a última fala NÃO saiu (ElevenLabs indisponível após as tentativas). Sempre false no modo demonstração. */
+  readonly falhou?: boolean;
 };
 
 export type OpcoesDoFalante = {
   /** Busca o áudio no backend. Sem ela (modo demonstração) usa só a voz do navegador. */
   sintetizar?: (texto: string, sinal: AbortSignal) => Promise<Blob>;
-  /** Depois de uma falha do servidor, fica este tempo sem tentar de novo (evita chamadas inúteis). */
-  pausaAposFalhaMs?: number;
+  /** Quantas vezes tenta obter/tocar o áudio da ElevenLabs antes de desistir da fala. */
+  tentativas?: number;
+  /** Espera entre uma tentativa e a seguinte. */
+  pausaEntreTentativasMs?: number;
   limiteDoCache?: number;
 };
 
 type Fala = { id: number; encerrar: () => void };
 
-const PAUSA_APOS_FALHA_PADRAO = 120_000;
+const TENTATIVAS_PADRAO = 3;
+const PAUSA_ENTRE_TENTATIVAS_PADRAO = 600;
 const LIMITE_PADRAO_DO_CACHE = 80;
 
 /** Prefere uma voz pt-BR masculina conhecida; senão qualquer pt-BR; senão deixa o navegador decidir. */
@@ -37,10 +46,11 @@ function escolherVozDoNavegador(): SpeechSynthesisVoice | undefined {
 }
 
 export function criarFalante(opcoes: OpcoesDoFalante = {}): Falante {
-  const pausaAposFalha = opcoes.pausaAposFalhaMs ?? PAUSA_APOS_FALHA_PADRAO;
+  const tentativas = Math.max(1, opcoes.tentativas ?? TENTATIVAS_PADRAO);
+  const pausaEntreTentativas = opcoes.pausaEntreTentativasMs ?? PAUSA_ENTRE_TENTATIVAS_PADRAO;
   const limiteDoCache = opcoes.limiteDoCache ?? LIMITE_PADRAO_DO_CACHE;
   const cacheDeAudio = new Map<string, string>(); // texto -> URL do áudio já baixado
-  let servidorIndisponivelAte = 0;
+  let falhou = false;
   let sequencia = 0;
   let atual: Fala | null = null;
   let controleDaBusca: AbortController | null = null;
@@ -123,9 +133,39 @@ export function criarFalante(opcoes: OpcoesDoFalante = {}): Falante {
     });
   }
 
+  /** Busca (ou reaproveita do cache) e toca o áudio da ElevenLabs. Tenta de novo se algo falhar. */
+  async function falarComElevenLabs(texto: string, vigente: () => boolean): Promise<boolean> {
+    for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+      if (!vigente()) return false;
+      let url = cacheDeAudio.get(texto);
+      if (!url) {
+        const controle = new AbortController();
+        controleDaBusca = controle;
+        try {
+          guardarNoCache(texto, await opcoes.sintetizar!(texto, controle.signal));
+          url = cacheDeAudio.get(texto);
+        } catch {
+          // 503, rede, tempo esgotado... tenta de novo abaixo
+        } finally {
+          if (controleDaBusca === controle) controleDaBusca = null;
+        }
+        if (!vigente()) return false;
+      }
+      if (url && await tocarAudio(url)) return true;
+      if (!vigente()) return false;
+      if (url) { // áudio que não tocou (corrompido, autoplay...): descarta e busca de novo na próxima tentativa
+        URL.revokeObjectURL(url);
+        cacheDeAudio.delete(texto);
+      }
+      if (tentativa < tentativas) await new Promise<void>((resolver) => setTimeout(resolver, pausaEntreTentativas));
+    }
+    return false;
+  }
+
   async function falar(textoBruto: string): Promise<void> {
     const texto = textoBruto.replace(/\s+/g, ' ').trim();
     cancelar();
+    falhou = false;
     if (!texto) return;
 
     const id = ++sequencia;
@@ -137,29 +177,19 @@ export function criarFalante(opcoes: OpcoesDoFalante = {}): Falante {
 
     void (async () => {
       try {
-        let url = cacheDeAudio.get(texto);
-        const podeUsarServidor = Boolean(opcoes.sintetizar) && Date.now() >= servidorIndisponivelAte;
-        if (!url && podeUsarServidor) {
-          const controle = new AbortController();
-          controleDaBusca = controle;
-          try {
-            guardarNoCache(texto, await opcoes.sintetizar!(texto, controle.signal));
-            url = cacheDeAudio.get(texto);
-          } catch {
-            if (!vigente()) return;
-            servidorIndisponivelAte = Date.now() + pausaAposFalha; // 503, rede, timeout...
-          } finally {
-            if (controleDaBusca === controle) controleDaBusca = null;
-          }
-        }
-        if (!vigente()) return;
-
-        if (url && await tocarAudio(url)) {
-          motor = 'elevenlabs';
-        } else {
-          if (!vigente()) return;
+        if (!opcoes.sintetizar) {
+          // Modo demonstração (sem backend): só existe a voz do navegador.
           motor = 'navegador';
           await falarComNavegador(texto);
+          return;
+        }
+        const saiu = await falarComElevenLabs(texto, vigente);
+        if (!vigente()) return;
+        if (saiu) {
+          motor = 'elevenlabs';
+        } else {
+          motor = null;
+          falhou = true; // o controlador pausa a conversa: nada de voz robótica no lugar
         }
       } finally {
         if (vigente()) atual = null;
@@ -170,5 +200,5 @@ export function criarFalante(opcoes: OpcoesDoFalante = {}): Falante {
     return terminou;
   }
 
-  return { falar, cancelar, get motor() { return motor; } };
+  return { falar, cancelar, get motor() { return motor; }, get falhou() { return falhou; } };
 }

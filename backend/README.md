@@ -100,7 +100,7 @@ Para voltar ao modo demonstração (sem backend), apague `src/.env.local`.
 
 `POST /api/v1/voice/speech` converte uma frase curta em áudio MP3 com a voz configurada. A chave da ElevenLabs fica
 **somente** no `backend/.env` (`ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`...; veja `.env.example`) e nunca é enviada ao
-navegador. Sem chave/voz a rota responde `503 VOZ_INDISPONIVEL` e o frontend usa a voz do navegador. Detalhes em
+navegador. Sem chave/voz válidas a rota responde `503 VOZ_INDISPONIVEL` e a conferência por voz pausa com aviso (o frontend não usa voz do navegador quando está conectado ao backend). Detalhes em
 [`docs/voz-do-assistente.md`](../docs/voz-do-assistente.md).
 
 ## Documentação relacionada

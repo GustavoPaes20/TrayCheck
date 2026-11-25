@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { criarFalante } from '@/voice/falante';
 
-// Falante: ElevenLabs (via backend) com cache e voz do navegador como alternativa.
+// Falante: com backend toda fala é da ElevenLabs (sem voz do navegador de reserva); sem backend (demonstração) usa o navegador.
 
 class AudioFalso {
   static instancias: AudioFalso[] = [];
@@ -78,26 +78,64 @@ describe('falante com ElevenLabs', () => {
     expect(sintetizar).toHaveBeenCalledTimes(1);
   });
 
-  it('se o servidor falhar (ex.: 503), usa a voz do navegador e não insiste por um tempo', async () => {
+  it('com backend, se a ElevenLabs falhar (503) tenta de novo e NUNCA usa a voz do navegador', async () => {
     const sintetizar = vi.fn(async () => { throw new Error('503'); });
-    const falante = criarFalante({ sintetizar, pausaAposFalhaMs: 60_000 });
+    const falante = criarFalante({ sintetizar, tentativas: 3, pausaEntreTentativasMs: 0 });
 
     await falante.falar('Primeiro item.');
-    await falante.falar('Segundo item.');
 
-    expect(falante.motor).toBe('navegador');
-    expect(faladasNoNavegador.map((e) => e.text)).toEqual(['Primeiro item.', 'Segundo item.']);
-    expect(sintetizar).toHaveBeenCalledTimes(1); // a segunda fala nem tentou o servidor
+    expect(sintetizar).toHaveBeenCalledTimes(3);
+    expect(falante.falhou).toBe(true);
+    expect(falante.motor).toBeNull();
+    expect(faladasNoNavegador).toEqual([]); // nada de voz robótica no lugar
+    expect(AudioFalso.instancias).toHaveLength(0);
   });
 
-  it('se o áudio não puder tocar (erro/autoplay), cai para a voz do navegador', async () => {
-    const falante = criarFalante({ sintetizar: async () => blobDeAudio() });
+  it('uma falha passageira é recuperada pela nova tentativa e a fala sai pela ElevenLabs', async () => {
+    const sintetizar = vi.fn().mockRejectedValueOnce(new Error('503')).mockResolvedValue(blobDeAudio());
+    const falante = criarFalante({ sintetizar, pausaEntreTentativasMs: 0 });
+
+    const fala = falante.falar('Olá.');
+    await esperarAudio();
+    AudioFalso.instancias[0].terminar();
+    await fala;
+
+    expect(sintetizar).toHaveBeenCalledTimes(2);
+    expect(falante.falhou).toBe(false);
+    expect(falante.motor).toBe('elevenlabs');
+    expect(faladasNoNavegador).toEqual([]);
+  });
+
+  it('a falha de uma fala não contamina a próxima (falhou volta a false)', async () => {
+    const sintetizar = vi.fn()
+      .mockRejectedValueOnce(new Error('503')).mockRejectedValueOnce(new Error('503')).mockRejectedValueOnce(new Error('503'))
+      .mockResolvedValue(blobDeAudio());
+    const falante = criarFalante({ sintetizar, tentativas: 3, pausaEntreTentativasMs: 0 });
+
+    await falante.falar('Primeira.');
+    expect(falante.falhou).toBe(true);
+
+    const segunda = falante.falar('Segunda.');
+    await esperarAudio();
+    AudioFalso.instancias[0].terminar();
+    await segunda;
+    expect(falante.falhou).toBe(false);
+    expect(falante.motor).toBe('elevenlabs');
+  });
+
+  it('se o áudio não puder tocar (erro/autoplay), descarta, busca de novo e não usa a voz do navegador', async () => {
+    const sintetizar = vi.fn(async () => blobDeAudio());
+    const falante = criarFalante({ sintetizar, pausaEntreTentativasMs: 0 });
     vi.spyOn(AudioFalso.prototype, 'play').mockRejectedValueOnce(new Error('NotAllowedError'));
 
-    await falante.falar('Olá.');
+    const fala = falante.falar('Olá.');
+    await vi.waitFor(() => expect(AudioFalso.instancias).toHaveLength(2));
+    AudioFalso.instancias[1].terminar();
+    await fala;
 
-    expect(falante.motor).toBe('navegador');
-    expect(faladasNoNavegador.map((e) => e.text)).toEqual(['Olá.']);
+    expect(sintetizar).toHaveBeenCalledTimes(2);
+    expect(falante.motor).toBe('elevenlabs');
+    expect(faladasNoNavegador).toEqual([]);
   });
 
   it('uma nova fala CANCELA a anterior: nunca há duas vozes ao mesmo tempo', async () => {
@@ -143,6 +181,13 @@ describe('falante com ElevenLabs', () => {
 });
 
 describe('falante só com a voz do navegador (modo demonstração)', () => {
+  it('sem backend nunca marca falha (a voz do navegador é o único motor)', async () => {
+    const falante = criarFalante();
+    await falante.falar('Olá.');
+    expect(falante.falhou).toBe(false);
+    expect(falante.motor).toBe('navegador');
+  });
+
   it('fala pelo navegador em pt-BR e resolve ao terminar', async () => {
     const falante = criarFalante();
 

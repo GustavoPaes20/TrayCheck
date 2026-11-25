@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { registrarFalaSintetizada } from './voz';
 
 export const URL_BASE_DE_TESTE = 'http://api.test/api/v1';
 
@@ -42,6 +43,11 @@ export function instalarApiFalsa(rotas: Record<string, RotaFalsa>, prefixo = '/a
     chamadas.push(chamada);
 
     const rota = rotas[`${metodo} ${caminho}`];
+    if (!rota && metodo === 'POST' && caminho === '/voice/speech') {
+      // Como o backend real: devolve o áudio da ElevenLabs (aqui, bytes de mentira) e o teste registra o que foi falado.
+      registrarFalaSintetizada(String((chamada.corpo as { text?: string } | undefined)?.text ?? ''));
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'Content-Type': 'audio/mpeg' } });
+    }
     if (!rota) return criarResposta({ status: 404, corpo: { message: `Rota não simulada: ${metodo} ${caminho}` } });
     return criarResposta(typeof rota === 'function' ? rota(chamada) : rota);
   });

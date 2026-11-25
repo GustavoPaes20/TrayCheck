@@ -62,6 +62,8 @@ export async function instalarVozFalsa(page: Page) {
       onresult: ((e: { resultIndex: number; results: Resultado[] }) => void) | null = null;
       onerror: ((e: { error: string }) => void) | null = null;
       onend: (() => void) | null = null;
+      onstart: (() => void) | null = null;
+      onaudiostart: (() => void) | null = null;
       lang = '';
       continuous = false;
       interimResults = false;
@@ -72,6 +74,7 @@ export async function instalarVozFalsa(page: Page) {
         this.iniciado = true;
         atual = this;
         eventos.push('mic:abre');
+        this.onaudiostart?.();
       }
       stop() { this.fechar(); }
       abort() { this.fechar(); }

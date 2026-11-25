@@ -1,6 +1,11 @@
 import { act, waitFor } from '@testing-library/react';
 import { expect, vi } from 'vitest';
 import { ajustesDeTempo } from '@/voice/controlador';
+import { ajustesDeEscuta } from '@/voice/reconhecedor';
+
+// Falas pedidas ao backend (ElevenLabs) durante o teste atual: a API falsa registra aqui o texto de cada pedido.
+let falasAtuais: string[] | null = null;
+export function registrarFalaSintetizada(texto: string) { falasAtuais?.push(texto); }
 
 type ResultadoFalso = Array<{ transcript: string; confidence?: number }> & { isFinal: boolean };
 
@@ -31,6 +36,8 @@ export class ReconhecimentoDeVozFalso {
   onresult: ((evento: { resultIndex?: number; results: ResultadoFalso[] }) => void) | null = null;
   onerror: ((evento?: { error?: string }) => void) | null = null;
   onend: (() => void) | null = null;
+  onstart: (() => void) | null = null;
+  onaudiostart: (() => void) | null = null;
 
   constructor() {
     ReconhecimentoDeVozFalso.instancias.push(this);
@@ -39,6 +46,7 @@ export class ReconhecimentoDeVozFalso {
   start() {
     this.iniciado = true;
     this.jaIniciou = true;
+    this.onaudiostart?.(); // o navegador começou a captar áudio
   }
 
   stop() {
@@ -91,9 +99,15 @@ export async function aguardarFala(falas: string[], trecho: string | RegExp) {
 export function instalarVozFalsa() {
   ReconhecimentoDeVozFalso.instancias = [];
   ajustesDeTempo.atrasoAposFalaMs = 0;
+  ajustesDeTempo.reaberturasSilenciosas = 0; // os testes de tela ligam a reabertura silenciosa só onde precisam
+  ajustesDeEscuta.janelaMs = 1200; // janela de resposta curta nos testes (em produção são 12 s)
+  ajustesDeEscuta.pausaEntreReiniciosMs = 10;
   const falas: string[] = [];
+  falasAtuais = falas;
   let segurando = false;
   let emFala: EnunciadoFalso[] = [];
+  let emFalaAudio: Array<() => void> = [];
+  let sequenciaDeUrls = 0;
 
   class EnunciadoFalso {
     lang = '';
@@ -105,6 +119,23 @@ export function instalarVozFalsa() {
     constructor(public text: string) {}
   }
 
+  // Áudio da ElevenLabs (modo conectado): termina logo depois de tocar, ou só quando o teste chamar `terminarFala()`.
+  class AudioFalso {
+    onended: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    private fim = () => this.onended?.();
+    constructor(public src: string) {}
+    play() {
+      if (segurando) emFalaAudio.push(this.fim);
+      else setTimeout(this.fim, 0);
+      return Promise.resolve();
+    }
+    pause() { emFalaAudio = emFalaAudio.filter((f) => f !== this.fim); }
+  }
+  URL.createObjectURL = vi.fn(() => `blob:teste-${++sequenciaDeUrls}`);
+  URL.revokeObjectURL = vi.fn();
+
+  vi.stubGlobal('Audio', AudioFalso);
   vi.stubGlobal('SpeechRecognition', ReconhecimentoDeVozFalso);
   vi.stubGlobal('SpeechSynthesisUtterance', EnunciadoFalso);
   vi.stubGlobal('speechSynthesis', {
@@ -125,8 +156,13 @@ export function instalarVozFalsa() {
       segurando = false;
       const pendentes = emFala;
       emFala = [];
-      act(() => pendentes.forEach((e) => e.onend?.()));
+      const pendentesDoAudio = emFalaAudio;
+      emFalaAudio = [];
+      act(() => {
+        pendentes.forEach((e) => e.onend?.());
+        pendentesDoAudio.forEach((fim) => fim());
+      });
     },
-    get falando() { return emFala.length > 0; },
+    get falando() { return emFala.length > 0 || emFalaAudio.length > 0; },
   };
 }

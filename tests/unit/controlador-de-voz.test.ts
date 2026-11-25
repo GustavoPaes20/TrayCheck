@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ControladorDaConferenciaPorVoz, FRASES, pareceEco,
-  type EstadoDaVoz, type ItemParaConferir,
+  ajustesDeTempo, MENSAGEM_VOZ_INDISPONIVEL, type EstadoDaVoz, type ItemParaConferir,
 } from '@/voice/controlador';
 import type { Falante } from '@/voice/falante';
 import type { Reconhecedor, ResultadoDaEscuta } from '@/voice/reconhecedor';
 
 // ── Dublês que DENUNCIAM sobreposição entre fala e microfone ─────────────────
 class Cenario {
+  constructor() { ajustesDeTempo.reaberturasSilenciosas = 0; } // cada teste liga a reabertura onde precisa
   eventos: string[] = [];
   violacoes: string[] = [];
   falando = false;
@@ -41,11 +42,12 @@ class Cenario {
 
   reconhecedor: Reconhecedor = {
     suportado: true,
-    ouvir: () => {
+    ouvir: (aoAbrir) => {
       if (this.falando) this.violacoes.push('abriu o microfone durante a fala do assistente');
       if (this.microfoneAberto) this.violacoes.push('abriu o microfone duas vezes');
       this.microfoneAberto = true;
       this.eventos.push('mic:abre');
+      queueMicrotask(() => aoAbrir?.()); // o navegador começou a captar áudio
       const proximo = this.roteiro.shift();
       if (proximo) return Promise.resolve(proximo).then((r) => { this.microfoneAberto = false; return r; });
       return new Promise<ResultadoDaEscuta>((resolver) => { this.resolverEscuta = (r) => { this.microfoneAberto = false; resolver(r); }; });
@@ -273,5 +275,82 @@ describe('invariante geral', () => {
     await concluir(c, 'parado');
     expect(c.violacoes).toEqual([]);
     expect(c.status()).toEqual(['confirmed', 'missing']);
+  });
+});
+
+describe('escuta curta: reabrir o microfone em silêncio antes de repetir a pergunta', () => {
+  it('silêncio curto reabre o microfone SEM repetir a pergunta e a resposta seguinte vale', async () => {
+    const c = new Cenario();
+    ajustesDeTempo.reaberturasSilenciosas = 2;
+    c.itens.pop();
+    c.roteiro.push({ tipo: 'silencio' }, { tipo: 'silencio' });
+    c.ouvirDe('sim, temos');
+    c.controlador.iniciar();
+    await concluir(c, 'parado');
+
+    expect(c.registros).toEqual([['a', 'confirmed']]);
+    expect(c.falas.filter((f) => f.includes('Está disponível?'))).toHaveLength(1); // perguntou uma vez só
+    expect(c.falas.some((f) => f.startsWith('Não ouvi'))).toBe(false);
+    expect(c.eventos.filter((e) => e === 'mic:abre')).toHaveLength(3); // reabriu duas vezes
+    expect(c.violacoes).toEqual([]);
+  });
+
+  it('esgotadas as reaberturas, repete a pergunta ("Não ouvi a resposta")', async () => {
+    const c = new Cenario();
+    ajustesDeTempo.reaberturasSilenciosas = 1;
+    c.itens.pop();
+    c.roteiro.push({ tipo: 'silencio' }, { tipo: 'silencio' });
+    c.ouvirDe('tem');
+    c.controlador.iniciar();
+    await concluir(c, 'parado');
+
+    expect(c.falas).toContain(FRASES.naoOuvi('Pinça Kelly'));
+    expect(c.registros).toEqual([['a', 'confirmed']]);
+  });
+
+  it('nunca reabre o microfone enquanto o assistente fala', async () => {
+    const c = new Cenario();
+    ajustesDeTempo.reaberturasSilenciosas = 3;
+    c.roteiro.push({ tipo: 'silencio' }, { tipo: 'silencio' }, { tipo: 'silencio' });
+    c.ouvirDe('sim', 'sim');
+    c.controlador.iniciar();
+    await concluir(c, 'parado');
+    expect(c.violacoes).toEqual([]);
+  });
+
+  it('o estado "preparando" vem antes de "ouvindo" (a tela só mostra "Ouvindo" com o microfone aberto)', async () => {
+    const c = new Cenario();
+    c.itens.pop();
+    c.ouvirDe('sim');
+    c.controlador.iniciar();
+    await concluir(c, 'parado');
+    const nomes = c.estados.map(([estado]) => estado);
+    expect(nomes.indexOf('preparando')).toBeGreaterThan(-1);
+    expect(nomes.indexOf('preparando')).toBeLessThan(nomes.indexOf('ouvindo'));
+  });
+});
+
+describe('voz do assistente indisponível (ElevenLabs não respondeu)', () => {
+  it('pausa com aviso, NÃO abre o microfone e não registra nada', async () => {
+    const c = new Cenario();
+    (c.falante as { falhou?: boolean }).falhou = true;
+    c.controlador.iniciar();
+    await concluir(c, 'pausado');
+
+    expect(c.estados.at(-1)).toEqual(['pausado', MENSAGEM_VOZ_INDISPONIVEL]);
+    expect(c.eventos).not.toContain('mic:abre');
+    expect(c.registros).toEqual([]);
+    expect(c.controlador.emAndamento).toBe(false);
+  });
+
+  it('falha só na frase final (conferência já concluída) não vira erro', async () => {
+    const c = new Cenario();
+    c.itens.forEach((i) => { i.status = 'confirmed'; });
+    (c.falante as { falhou?: boolean }).falhou = true;
+    c.controlador.iniciar();
+    await concluir(c, 'parado');
+
+    expect(c.estados.at(-1)?.[0]).toBe('parado');
+    expect(c.estados.some(([estado]) => estado === 'pausado')).toBe(false);
   });
 });

@@ -15,7 +15,7 @@ import { interpretarAlternativas, normalizarFala, type Interpretacao } from './i
 import type { Falante } from './falante';
 import type { Reconhecedor } from './reconhecedor';
 
-export type EstadoDaVoz = 'parado' | 'falando' | 'ouvindo' | 'interpretando' | 'pausado' | 'erro';
+export type EstadoDaVoz = 'parado' | 'falando' | 'preparando' | 'ouvindo' | 'interpretando' | 'pausado' | 'erro';
 
 export type ItemParaConferir = {
   id: string;
@@ -44,6 +44,8 @@ export type DependenciasDoControlador = {
   atrasoAposFalaMs?: number;
   /** Máximo de respostas ruins/ausentes seguidas no mesmo item antes de pausar e pedir os botões. */
   maximoDeTentativas?: number;
+  /** Quantas vezes reabrir o microfone EM SILÊNCIO (sem repetir a pergunta) quando a escuta fecha sem resposta. */
+  reaberturasSilenciosas?: number;
   esperar?: (ms: number) => Promise<void>;
 };
 
@@ -51,7 +53,12 @@ export const ATRASO_APOS_FALA_MS = 450;
 export const MAXIMO_DE_TENTATIVAS = 3;
 
 /** Valores usados quando a dependência não os informa. Os testes de tela zeram a pausa para ficarem rápidos. */
-export const ajustesDeTempo = { atrasoAposFalaMs: ATRASO_APOS_FALA_MS };
+export const REABERTURAS_SILENCIOSAS = 1;
+export const MENSAGEM_VOZ_INDISPONIVEL = 'A voz do assistente (ElevenLabs) não respondeu. Confira a conexão com o servidor e use os botões na tela.';
+export const ajustesDeTempo = { atrasoAposFalaMs: ATRASO_APOS_FALA_MS, reaberturasSilenciosas: REABERTURAS_SILENCIOSAS };
+
+/** Respiro antes de reabrir o microfone em silêncio (evita laço rápido se o navegador encerrar a escuta na hora). */
+const PAUSA_ENTRE_REABERTURAS_MS = 300;
 
 export const FRASES = {
   conferido: 'Conferido.',
@@ -118,12 +125,20 @@ export class ControladorDaConferenciaPorVoz {
     return this.ativo && geracao === this.geracao;
   }
 
-  private async dizer(geracao: number, texto: string): Promise<boolean> {
+  private async dizer(geracao: number, texto: string, tolerarFalha = false): Promise<boolean> {
     this.deps.reconhecedor.cancelar(); // garante microfone fechado durante a fala
     this.ultimaFala = texto;
     this.deps.aoMudarEstado('falando');
     await this.deps.falante.falar(texto); // só volta quando o áudio terminou (ou foi cancelado)
-    return this.vigente(geracao);
+    if (!this.vigente(geracao)) return false;
+    if (this.deps.falante.falhou && !tolerarFalha) {
+      // A ElevenLabs não respondeu: não existe voz robótica de reserva. Pausa e deixa os botões da tela.
+      this.nova();
+      this.ativo = false;
+      this.deps.aoMudarEstado('pausado', MENSAGEM_VOZ_INDISPONIVEL);
+      return false;
+    }
+    return true;
   }
 
   private async conversar(geracao: number, introducao: string): Promise<void> {
@@ -137,29 +152,33 @@ export class ControladorDaConferenciaPorVoz {
     let perguntaPendente: ((item: ItemParaConferir) => string) | null = null;
     let primeira = true;
     let ecos = 0;
+    let reabrir = false; // reabre o microfone sem falar (após silêncio curto ou eco)
+    let silenciosSeguidos = 0;
+    const reaberturas = this.deps.reaberturasSilenciosas ?? ajustesDeTempo.reaberturasSilenciosas;
 
     while (this.vigente(geracao)) {
       const item = obterItemAtual();
       if (!item) {
-        if (!(await this.dizer(geracao, FRASES.concluida))) return;
+        if (!(await this.dizer(geracao, FRASES.concluida, true))) return;
         this.ativo = false;
         aoMudarEstado('parado');
         return;
       }
-      if (item.id !== itemDaTentativa) { itemDaTentativa = item.id; tentativas = 0; ecos = 0; perguntaPendente = null; }
+      if (item.id !== itemDaTentativa) { itemDaTentativa = item.id; tentativas = 0; ecos = 0; silenciosSeguidos = 0; reabrir = false; perguntaPendente = null; }
 
       // 1) Anunciar (ou repetir a pergunta). O microfone continua FECHADO.
       const abertura = primeira && introducao ? `${introducao} ` : '';
       const texto = perguntaPendente ? perguntaPendente(item) : `${abertura}${FRASES.perguntar(item.anuncio)}`;
       perguntaPendente = null;
       primeira = false;
-      if (ecos === 0 && !(await this.dizer(geracao, texto))) return;
+      if (!reabrir && !(await this.dizer(geracao, texto))) return;
+      reabrir = false;
 
       // 2) Só agora: pausa curta e microfone aberto para UMA resposta.
       await esperar(atraso);
       if (!this.vigente(geracao)) return;
-      aoMudarEstado('ouvindo');
-      const escuta = await reconhecedor.ouvir();
+      aoMudarEstado('preparando'); // "Ouvindo..." só aparece quando o navegador realmente abriu o microfone
+      const escuta = await reconhecedor.ouvir(() => { if (this.vigente(geracao)) aoMudarEstado('ouvindo'); });
       if (!this.vigente(geracao)) return; // turno antigo: descarta
       reconhecedor.cancelar(); // microfone fechado antes de qualquer outra coisa
 
@@ -174,6 +193,14 @@ export class ControladorDaConferenciaPorVoz {
 
       // 4) Sem resposta: pergunta de novo, até o limite.
       if (escuta.tipo === 'silencio') {
+        // Primeiro reabre em silêncio (o usuário pode estar pegando o material); só depois repete a pergunta.
+        if (silenciosSeguidos < reaberturas) {
+          silenciosSeguidos += 1;
+          reabrir = true;
+          await esperar(PAUSA_ENTRE_REABERTURAS_MS);
+          continue;
+        }
+        silenciosSeguidos = 0;
         tentativas += 1;
         if (tentativas >= maximo) return this.pausarPorFalta(geracao, FRASES.semResposta);
         perguntaPendente = (i) => FRASES.naoOuvi(i.nomeFalado);
@@ -184,10 +211,12 @@ export class ControladorDaConferenciaPorVoz {
       const textoOuvido = escuta.alternativas[0]!.transcript;
       if (pareceEco(textoOuvido, this.ultimaFala)) {
         ecos += 1;
-        if (ecos > 2) { ecos = 0; tentativas += 1; if (tentativas >= maximo) return this.pausarPorFalta(geracao, FRASES.semResposta); perguntaPendente = (i) => FRASES.naoOuvi(i.nomeFalado); }
+        reabrir = true;
+        if (ecos > 2) { ecos = 0; reabrir = false; tentativas += 1; if (tentativas >= maximo) return this.pausarPorFalta(geracao, FRASES.semResposta); perguntaPendente = (i) => FRASES.naoOuvi(i.nomeFalado); }
         continue;
       }
       ecos = 0;
+      silenciosSeguidos = 0;
 
       // 6) Interpretar e agir.
       aoMudarEstado('interpretando');
@@ -211,7 +240,7 @@ export class ControladorDaConferenciaPorVoz {
   }
 
   private async pausarPorFalta(geracao: number, frase: string) {
-    if (!(await this.dizer(geracao, frase))) return;
+    if (!(await this.dizer(geracao, frase, true))) return;
     this.ativo = false;
     this.deps.aoMudarEstado('pausado', frase);
   }

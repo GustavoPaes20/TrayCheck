@@ -28,6 +28,7 @@ const tituloDoEstadoDaVoz: Record<EstadoDaVoz, { titulo: string; dica: string }>
   pausado: { titulo: 'Assistente pausado', dica: 'Toque para continuar a conferência' },
   erro: { titulo: 'Microfone indisponível', dica: 'Use os botões na tela ou toque para tentar de novo' },
   falando: { titulo: 'Assistente falando...', dica: 'O microfone abre quando a pergunta terminar' },
+  preparando: { titulo: 'Abrindo o microfone...', dica: 'Aguarde um instante, ainda não pode falar' },
   ouvindo: { titulo: 'Ouvindo...', dica: 'Responda: "sim, temos" ou "não temos"' },
   interpretando: { titulo: 'Entendendo a resposta...', dica: 'Aguarde um instante' },
 };
@@ -367,7 +368,7 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
     definirFiltroDeStatus('all');
   }
 
-  const conversaAtiva = estadoDaVoz === 'falando' || estadoDaVoz === 'ouvindo' || estadoDaVoz === 'interpretando';
+  const conversaAtiva = estadoDaVoz === 'falando' || estadoDaVoz === 'preparando' || estadoDaVoz === 'ouvindo' || estadoDaVoz === 'interpretando';
   const ouvindoMicrofone = estadoDaVoz === 'ouvindo'; // microfone realmente aberto
   const quantidadeDeItensConfirmados = itensDaConferencia.filter((itemDaConferencia) => itemDaConferencia.status === 'confirmed').length;
   const quantidadeDeItensFaltantes = itensDaConferencia.filter((itemDaConferencia) => itemDaConferencia.status === 'missing').length;

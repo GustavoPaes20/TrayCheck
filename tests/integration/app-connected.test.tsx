@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AppUser, AuthUser, ChecklistReport, EquipmentItem, StockItem, SurgeryType } from '@/data/mockData';
 import { carregarModulosConectados, instalarApiFalsa, type RotaFalsa } from '../helpers/api-falsa';
-import { aguardarMicrofoneAberto, instalarVozFalsa, responderPorVoz } from '../helpers/voz';
+import { aguardarMicrofoneAberto, instalarVozFalsa, ReconhecimentoDeVozFalso, responderPorVoz } from '../helpers/voz';
 
 const enfermeira: AuthUser = {
   id: 'u1',
@@ -196,6 +196,21 @@ describe('App (modo conectado à API) — integração com o contrato REST', () 
       expect(screen.getByRole('combobox')).toHaveValue('apendicite');
       expect(screen.getByText('Luvas Estéreis')).toBeInTheDocument();
       expect(api.chamadasPara('GET', '/surgeries/apendicite/kit').length).toBeGreaterThan(0);
+    });
+
+    it('com a ElevenLabs fora do ar, pausa com aviso e NÃO fala com a voz do navegador', async () => {
+      const { user } = await renderizarApp({
+        'POST /reports': { status: 201, corpo: { id: 'r99' } },
+        'POST /voice/speech': { status: 503, corpo: { code: 'VOZ_INDISPONIVEL', message: 'Voz indisponível.' } },
+      });
+      const linha = (await screen.findByText('Apendicectomia')).closest<HTMLElement>('.group')!;
+      await user.click(within(linha).getByRole('button', { name: 'Conferir' }));
+      await screen.findByText('Bisturi Cirúrgico');
+      await user.click(screen.getByRole('button', { name: 'Ativar Microfone' }));
+
+      expect(await screen.findByText(/A voz do assistente \(ElevenLabs\) não respondeu/, {}, { timeout: 5000 })).toBeInTheDocument();
+      expect(window.speechSynthesis.speak).not.toHaveBeenCalled(); // nada de voz robótica no lugar
+      expect(ReconhecimentoDeVozFalso.aberturas).toBe(0); // e o microfone nunca abriu
     });
 
     it('ao concluir com divergência, grava UM relatório com contagens, itens e status corretos', async () => {
