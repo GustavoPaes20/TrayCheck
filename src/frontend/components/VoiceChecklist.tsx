@@ -4,7 +4,12 @@ import type { AuthUser, ReportItem, ReportItemStatus } from '../data/mockData';
 import { clienteApi, apiEstaConfigurada } from '../services/api';
 
 type SpeechRecognitionEvent = {
+  resultIndex: number;
   results: SpeechRecognitionResultList;
+};
+
+type SpeechRecognitionErrorEvent = {
+  error: string;
 };
 
 type SpeechRecognitionResultList = {
@@ -26,7 +31,7 @@ type SpeechRecognitionInstance = {
   continuous: boolean;
   interimResults: boolean;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -43,14 +48,9 @@ type VoiceChecklistProps = {
   voltarAoPainel?: () => void;
 };
 
-function falar(texto: string) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const enunciado = new SpeechSynthesisUtterance(texto);
-  enunciado.lang = 'pt-BR';
-  enunciado.rate = 0.95;
-  window.speechSynthesis.speak(enunciado);
-}
+// Erros do reconhecimento que impedem de vez o uso do microfone (permissão negada ou sem microfone).
+// Os demais (silêncio, rede, interrupção) são normais: o reconhecimento é religado sozinho.
+const errosQueDesligamOMicrofone = ['not-allowed', 'service-not-allowed', 'audio-capture'];
 
 function normalizarTexto(texto: string): string {
   return texto
@@ -104,6 +104,39 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
 
   const reconhecimentoDeVozRef = useRef<SpeechRecognitionInstance | null>(null);
   const temporizadorDaDemonstracaoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Refs (e não estado) porque são lidas dentro dos eventos do navegador, que guardam valores antigos.
+  const querOuvirRef = useRef(false);
+  const sistemaFalandoRef = useRef(false);
+  const ultimoEnunciadoRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  function religarEscuta() {
+    if (!querOuvirRef.current || sistemaFalandoRef.current || !reconhecimentoDeVozRef.current) return;
+    try { reconhecimentoDeVozRef.current.start(); } catch (_) { /* ainda encerrando: o onend religa */ }
+  }
+
+  // Fala com o microfone pausado, para o sistema não ouvir a própria voz e confirmar itens sozinho.
+  function falar(texto: string) {
+    if (!window.speechSynthesis) { religarEscuta(); return; }
+    const enunciado = new SpeechSynthesisUtterance(texto);
+    enunciado.lang = 'pt-BR';
+    enunciado.rate = 0.95;
+    ultimoEnunciadoRef.current = enunciado;
+    sistemaFalandoRef.current = true;
+    if (reconhecimentoDeVozRef.current) {
+      try { reconhecimentoDeVozRef.current.stop(); } catch (_) {}
+    }
+    const aoTerminarDeFalar = () => {
+      if (ultimoEnunciadoRef.current !== enunciado) return; // uma fala mais nova substituiu esta
+      sistemaFalandoRef.current = false;
+      religarEscuta();
+    };
+    enunciado.onend = aoTerminarDeFalar;
+    enunciado.onerror = aoTerminarDeFalar;
+    // Segurança: alguns navegadores não disparam onend; religa depois do tempo estimado da fala.
+    setTimeout(aoTerminarDeFalar, 1500 + texto.length * 120);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(enunciado);
+  }
 
   const cirurgiaSelecionada = listaDeCirurgias.find((cirurgia) => cirurgia.id === idCirurgiaSelecionada) ?? cirurgiasCadastradas.find((cirurgia) => cirurgia.id === idCirurgiaSelecionada) ?? cirurgiasCadastradas[0];
 
@@ -223,6 +256,7 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
   }, []);
 
   function interromperReconhecimentoDeVoz() {
+    querOuvirRef.current = false;
     if (reconhecimentoDeVozRef.current) {
       try { reconhecimentoDeVozRef.current.stop(); } catch (_) {}
       reconhecimentoDeVozRef.current = null;
@@ -253,8 +287,9 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
     reconhecimento.interimResults = true;
 
     reconhecimento.onresult = (eventoDeReconhecimento: SpeechRecognitionEvent) => {
+      if (sistemaFalandoRef.current) return; // ignora o que foi captado enquanto o sistema falava
       const resultados: SpeechRecognitionResult[] = [];
-      for (let indice = 0; indice < eventoDeReconhecimento.results.length; indice++) {
+      for (let indice = eventoDeReconhecimento.resultIndex ?? 0; indice < eventoDeReconhecimento.results.length; indice++) {
         resultados.push(eventoDeReconhecimento.results[indice]);
       }
       const transcricaoParcial = resultados.map((resultado) => resultado[0].transcript).join(' ');
@@ -286,19 +321,18 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
       }
     };
 
-    reconhecimento.onerror = () => {
-      definirOuvindoMicrofone(false);
-      reconhecimentoDeVozRef.current = null;
+    reconhecimento.onerror = (eventoDeErro: SpeechRecognitionErrorEvent) => {
+      if (!errosQueDesligamOMicrofone.includes(eventoDeErro?.error)) return; // o onend religa
+      interromperReconhecimentoDeVoz();
+      alert('O navegador bloqueou o microfone. Abra pelo Chrome ou Edge em http://localhost:8443 (ou https) e permita o acesso ao microfone.');
     };
 
     reconhecimento.onend = () => {
-      if (ouvindoMicrofone) {
-        try { reconhecimento.start(); } catch (_) {}
-      }
+      if (reconhecimentoDeVozRef.current === reconhecimento) religarEscuta();
     };
 
     reconhecimentoDeVozRef.current = reconhecimento;
-    reconhecimento.start();
+    querOuvirRef.current = true;
     definirOuvindoMicrofone(true);
     definirConferenciaIniciada(true);
     inicioDaConferenciaRef.current ??= Date.now();
@@ -308,8 +342,8 @@ export default function VoiceChecklist({ idCirurgiaInicial, usuario, voltarAoPai
 
   function alternarReconhecimentoDeVoz() {
     if (ouvindoMicrofone) {
-      falar('Microfone pausado.');
       interromperReconhecimentoDeVoz();
+      falar('Microfone pausado.');
     } else {
       iniciarReconhecimentoDeVoz();
     }

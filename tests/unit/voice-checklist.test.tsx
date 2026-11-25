@@ -309,6 +309,45 @@ describe('VoiceChecklist — conferência por voz', () => {
       esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
     });
 
+    it('silêncio ou falha passageira (no-speech) não desliga o microfone', async () => {
+      const { user } = renderizar();
+      const reconhecimento = await ativarMicrofone(user);
+
+      reconhecimento.falharComErro('no-speech');
+      act(() => reconhecimento.onend?.());
+
+      expect(screen.queryByText('Microfone inativo')).not.toBeInTheDocument();
+      expect(reconhecimento.iniciado).toBe(true);
+      reconhecimento.falar('grasper');
+      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
+    });
+
+    it('quando o navegador encerra a escuta sozinho, ela é religada', async () => {
+      const { user } = renderizar();
+      const reconhecimento = await ativarMicrofone(user);
+
+      reconhecimento.stop();
+      act(() => reconhecimento.onend?.());
+
+      expect(reconhecimento.iniciado).toBe(true);
+    });
+
+    it('não ouve a própria voz: o microfone fica pausado enquanto o sistema fala', async () => {
+      voz.controle.segurarFalas = true;
+      const { user } = renderizar();
+      const reconhecimento = await ativarMicrofone(user);
+
+      // "Iniciando conferência... Primeiro item: ..." ainda está sendo falado
+      expect(reconhecimento.iniciado).toBe(false);
+      reconhecimento.falar(itensDaApendicectomia[0].name);
+      esperarContagens({ pendentes: 6, confirmados: 0, faltando: 0 });
+
+      voz.terminarFala();
+      expect(reconhecimento.iniciado).toBe(true);
+      reconhecimento.falar(itensDaApendicectomia[0].name);
+      esperarContagens({ pendentes: 5, confirmados: 1, faltando: 0 });
+    });
+
     it('confirmar todos os itens por voz conclui a conferência', async () => {
       const { user } = renderizar();
       const reconhecimento = await ativarMicrofone(user);
